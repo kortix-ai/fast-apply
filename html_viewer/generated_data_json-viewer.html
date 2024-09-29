@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Viewer with Diff Highlighter (Plain Text)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        #fileInput {
+            margin-bottom: 20px;
+        }
+        #rowInput {
+            width: 50px;
+            margin-right: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .columns {
+            display: flex;
+            margin-top: 20px;
+        }
+        .column {
+            flex: 1;
+            margin: 0 10px;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .addition {
+            background-color: #e6ffec;
+        }
+        .deletion {
+            background-color: #ffebe9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JSON Viewer with Diff Highlighter (Plain Text)</h1>
+        <input type="file" id="fileInput" accept=".json">
+        <br><br>
+        <input type="number" id="rowInput" min="1" placeholder="Row #">
+        <button onclick="selectRow()">Select Row</button>
+        <button onclick="selectRandomRow()">Random</button>
+        <div class="columns">
+            <div class="column">
+                <h3>Update Snippet</h3>
+                <pre id="updateSnippet"></pre>
+            </div>
+            <div class="column">
+                <h3>Original Code</h3>
+                <pre id="originalCode"></pre>
+            </div>
+            <div class="column">
+                <h3>Final Code</h3>
+                <pre id="finalCode"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let jsonData = [];
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    jsonData = JSON.parse(e.target.result);
+                    document.getElementById('rowInput').max = jsonData.length;
+                    alert('File loaded successfully!');
+                } catch (error) {
+                    alert('Error parsing JSON file: ' + error);
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        function selectRow() {
+            const rowNumber = parseInt(document.getElementById('rowInput').value);
+            if (rowNumber < 1 || rowNumber > jsonData.length) {
+                alert('Invalid row number. Please enter a number between 1 and ' + jsonData.length);
+                return;
+            }
+            displayRow(rowNumber - 1);
+        }
+
+        function selectRandomRow() {
+            const randomIndex = Math.floor(Math.random() * jsonData.length);
+            document.getElementById('rowInput').value = randomIndex + 1;
+            displayRow(randomIndex);
+        }
+
+        function displayRow(index) {
+            const row = jsonData[index];
+            document.getElementById('updateSnippet').textContent = row['update_snippet'];
+            document.getElementById('originalCode').textContent = row['original_code'];
+            document.getElementById('finalCode').textContent = row['final_code'];
+            highlightDiff('finalCode', row['original_code'], row['final_code']);
+        }
+
+        function highlightDiff(elementId, oldText, newText) {
+            const dmp = new diff_match_patch();
+            const diffs = dmp.diff_main(oldText, newText);
+            dmp.diff_cleanupSemantic(diffs);
+            
+            const element = document.getElementById(elementId);
+            const fragment = document.createDocumentFragment();
+            
+            for (let i = 0; i < diffs.length; i++) {
+                const [operation, text] = diffs[i];
+                const span = document.createElement('span');
+                span.textContent = text;
+                
+                switch (operation) {
+                    case 1: // Insertion
+                        span.className = 'addition';
+                        break;
+                    case -1: // Deletion
+                        span.className = 'deletion';
+                        break;
+                }
+                
+                fragment.appendChild(span);
+            }
+            
+            element.innerHTML = '';
+            element.appendChild(fragment);
+        }
+    </script>
+</body>
+</html>

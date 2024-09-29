@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diff Viewer for debugging model output</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1, h3 {
+            color: #333;
+        }
+        #fileInput {
+            margin-bottom: 20px;
+        }
+        #rowInput {
+            width: 50px;
+            margin-right: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .columns {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .side-by-side {
+            flex-wrap: nowrap;
+        }
+        .column {
+            flex: 1 1 100%;
+            margin: 10px;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+            position: relative;
+            box-sizing: border-box;
+        }
+        .side-by-side .column {
+            flex: 1 1 calc(33.33% - 20px);
+            min-width: 300px;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .addition {
+            background-color: #e6ffec;
+        }
+        .deletion {
+            background-color: #ffebe9;
+            text-decoration: line-through;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: #f0f0f0;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .copy-btn:hover {
+            background-color: #e0e0e0;
+        }
+        #additionalFields {
+            margin-top: 20px;
+        }
+        #fieldSelect {
+            margin-right: 10px;
+        }
+        .field-column {
+            margin-top: 10px;
+        }
+        @media (max-width: 1200px) {
+            .side-by-side {
+                flex-wrap: wrap;
+            }
+            .side-by-side .column {
+                flex: 1 1 100%;
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><span id="modelName"></span></h1>
+        <input type="file" id="fileInput1" accept=".json">
+        <input type="file" id="fileInput2" accept=".json">
+        <br><br>
+        <input type="number" id="rowInput" min="1" placeholder="Row #">
+        <button onclick="selectRow()">Select Row</button>
+        <button onclick="selectRandomRow()">Random</button>
+        <button onclick="previousRow()">Previous</button>
+        <button onclick="nextRow()">Next</button>
+        <div class="columns side-by-side">
+            <div class="column">
+                <h3>Final Code</h3>
+                <button class="copy-btn" onclick="copyToClipboard('finalCode')">Copy</button>
+                <pre id="finalCode"></pre>
+            </div>
+            <div class="column">
+                <h3 id="modelName1">Model 1</h3>
+                <button class="copy-btn" onclick="copyToClipboard('generatedText1')">Copy</button>
+                <pre id="generatedText1"></pre>
+            </div>
+            <div class="column">
+                <h3 id="modelName2">Model 2</h3>
+                <button class="copy-btn" onclick="copyToClipboard('generatedText2')">Copy</button>
+                <pre id="generatedText2"></pre>
+            </div>
+        </div>
+        <div class="columns">
+            <div class="column">
+                <h3>Update Snippet</h3>
+                <button class="copy-btn" onclick="copyToClipboard('updateSnippet')">Copy</button>
+                <pre id="updateSnippet"></pre>
+            </div>
+        </div>
+        <div id="additionalFields">
+            <h3>Additional Fields</h3>
+            <select id="fieldSelect"></select>
+            <button onclick="addField()">Add Field</button>
+            <div id="extraFields" class="columns"></div>
+        </div>
+    </div>
+
+    <script>
+        let jsonData1 = [];
+        let jsonData2 = [];
+        let availableFields = [];
+
+        function loadJSON(fileInput, jsonDataArray) {
+            return new Promise((resolve, reject) => {
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        jsonDataArray.push(...data);
+                        resolve(data);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        document.getElementById('fileInput1').addEventListener('change', function(e) {
+            loadJSON(this, jsonData1).then(data => {
+                updateUI(data, 1);
+            }).catch(error => {
+                alert('Error parsing JSON file 1: ' + error);
+            });
+        });
+
+        document.getElementById('fileInput2').addEventListener('change', function(e) {
+            loadJSON(this, jsonData2).then(data => {
+                updateUI(data, 2);
+            }).catch(error => {
+                alert('Error parsing JSON file 2: ' + error);
+            });
+        });
+
+        function updateUI(data, fileNumber) {
+            document.getElementById('rowInput').max = Math.max(jsonData1.length, jsonData2.length);
+            if (data.length > 0) {
+                document.getElementById('rowInput').value = 1;
+                availableFields = Object.keys(data[0]).filter(field => 
+                    !['update_snippet', 'final_code', 'generated_text'].includes(field)
+                );
+                updateFieldSelect();
+                displayRow(0);
+                
+                // Extract model name from the 'model' field of the first JSON object
+                const modelName = data[0].model || `Unknown Model ${fileNumber}`;
+                const modelNameElement = document.getElementById('modelName');
+                const modelNameBlockElement = document.getElementById(`modelName${fileNumber}`);
+                if (fileNumber === 1) {
+                    modelNameElement.textContent = modelName;
+                    modelNameBlockElement.textContent = modelName;
+                } else {
+                    modelNameElement.textContent += ` vs ${modelName}`;
+                    modelNameBlockElement.textContent = modelName;
+                }
+            } else {
+                alert(`The JSON file ${fileNumber} is empty.`);
+            }
+        }
+
+        function selectRow() {
+            const rowNumber = parseInt(document.getElementById('rowInput').value);
+            const maxLength = Math.max(jsonData1.length, jsonData2.length);
+            if (rowNumber < 1 || rowNumber > maxLength) {
+                alert('Invalid row number. Please enter a number between 1 and ' + maxLength);
+                return;
+            }
+            displayRow(rowNumber - 1);
+        }
+
+        function selectRandomRow() {
+            const maxLength = Math.max(jsonData1.length, jsonData2.length);
+            const randomIndex = Math.floor(Math.random() * maxLength);
+            document.getElementById('rowInput').value = randomIndex + 1;
+            displayRow(randomIndex);
+        }
+
+        function displayRow(index) {
+            const row1 = jsonData1[index] || {};
+            const row2 = jsonData2[index] || {};
+            
+            document.getElementById('updateSnippet').textContent = row1['update_snippet'] || row2['update_snippet'] || '';
+            document.getElementById('finalCode').textContent = row1['final_code'] || row2['final_code'] || '';
+            
+            if (row1['generated_text']) {
+                highlightDiff('generatedText1', row1['final_code'], row1['generated_text']);
+            } else {
+                document.getElementById('generatedText1').textContent = '';
+            }
+            
+            if (row2['generated_text']) {
+                highlightDiff('generatedText2', row2['final_code'], row2['generated_text']);
+            } else {
+                document.getElementById('generatedText2').textContent = '';
+            }
+            
+            displayExtraFields(row1, row2);
+        }
+
+        function highlightDiff(elementId, oldText, newText) {
+            const dmp = new diff_match_patch();
+            const diffs = dmp.diff_main(oldText, newText);
+            dmp.diff_cleanupSemantic(diffs);
+            
+            const element = document.getElementById(elementId);
+            const fragment = document.createDocumentFragment();
+            
+            for (let i = 0; i < diffs.length; i++) {
+                const [operation, text] = diffs[i];
+                const span = document.createElement('span');
+                span.textContent = text;
+                
+                switch (operation) {
+                    case 1: // Insertion
+                        span.className = 'addition';
+                        break;
+                    case -1: // Deletion
+                        span.className = 'deletion';
+                        break;
+                }
+                
+                fragment.appendChild(span);
+            }
+            
+            element.innerHTML = '';
+            element.appendChild(fragment);
+        }
+
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Copied to clipboard!');
+            }, (err) => {
+                console.error('Could not copy text: ', err);
+            });
+        }
+
+        function addField() {
+            const select = document.getElementById('fieldSelect');
+            const field = select.value;
+            if (field && availableFields.includes(field)) {
+                const index = availableFields.indexOf(field);
+                availableFields.splice(index, 1);
+                updateFieldSelect();
+                
+                const extraFields = document.getElementById('extraFields');
+                const newField = document.createElement('div');
+                newField.className = 'column field-column';
+                newField.innerHTML = `
+                    <h3>${field}</h3>
+                    <button class="copy-btn" onclick="copyToClipboard('${field}')">Copy</button>
+                    <pre id="${field}"></pre>
+                `;
+                extraFields.appendChild(newField);
+                
+                // Update display if a row is selected
+                const rowInput = document.getElementById('rowInput');
+                if (rowInput.value) {
+                    displayRow(parseInt(rowInput.value) - 1);
+                }
+            }
+        }
+
+        function updateFieldSelect() {
+            const select = document.getElementById('fieldSelect');
+            select.innerHTML = availableFields.map(field => 
+                `<option value="${field}">${field}</option>`
+            ).join('');
+        }
+
+        function displayExtraFields(row1, row2) {
+            const extraFields = document.getElementById('extraFields');
+            extraFields.querySelectorAll('pre').forEach(pre => {
+                const field = pre.id;
+                const value1 = JSON.stringify(row1[field], null, 2);
+                const value2 = JSON.stringify(row2[field], null, 2);
+                pre.textContent = value1 === value2 ? value1 : `Model 1: ${value1}\n\nModel 2: ${value2}`;
+            });
+        }
+
+        function previousRow() {
+            let currentRow = parseInt(document.getElementById('rowInput').value);
+            if (currentRow > 1) {
+                currentRow--;
+                document.getElementById('rowInput').value = currentRow;
+                displayRow(currentRow - 1);
+            }
+        }
+
+        function nextRow() {
+            let currentRow = parseInt(document.getElementById('rowInput').value);
+            const maxLength = Math.max(jsonData1.length, jsonData2.length);
+            if (currentRow < maxLength) {
+                currentRow++;
+                document.getElementById('rowInput').value = currentRow;
+                displayRow(currentRow - 1);
+            }
+        }
+    </script>
+</body>
+</html>
