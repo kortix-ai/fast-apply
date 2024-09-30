@@ -100,7 +100,7 @@ Generating high-quality synthetic data is crucial for training robust models. Th
    Use `repo_to_dataset.py` to transform the repository data into a structured dataset:
 
    ```bash
-   python repo_to_dataset.py /path/to/your/repo --sample-lt-200 20 --sample-200-999 600 --sample-1000-1999 400
+   python repo_to_dataset.py /path/to/your/repo --sample-lt-200 20 --sample-200-999 600 --sample-1000-1999 400 --sample-2000-plus 200
    ```
 
    ```bash
@@ -164,7 +164,7 @@ Ensuring the deployed model performs as expected involves rigorous testing using
    Utilize the ` vllm_serverless_tester.py` script to evaluate the model's performance on a serverless infrastructure:
 
    ```bash
-   python tests/vllm_serverless_tester.py --pod your_pod_id
+   python tests/vllm_serverless_tester.py --pod your_pod_id --api_key your_api_key
    ```
 
 2. **Benchmark Inference Test Set**
@@ -172,7 +172,7 @@ Ensuring the deployed model performs as expected involves rigorous testing using
    Assess the model's inference capabilities with the `run_inference_testset.py` script:
 
    ```bash
-   python tests/inference_testset_runner.py data/test_100.parquet --pod your_pod_id --model_name 1.5B-v12 --num_queries 50
+   python tests/inference_testset_runner.py data/test_100.parquet --pod your_pod_id --api_key your_api_key --model_name 1.5B-v12 --num_queries 50 --max_tokens 2000
    ```
 
    **Parameters:**
