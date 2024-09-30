@@ -172,7 +172,7 @@ Ensuring the deployed model performs as expected involves rigorous testing using
    Assess the model's inference capabilities with the `run_inference_testset.py` script:
 
    ```bash
-   python tests/benchmark/run_inference_testset.py data/test_100.parquet --pod your_pod_id --model_name 1.5B-v12 --num_queries 50
+   python tests/run_inference_testset.py data/test_100.parquet --pod your_pod_id --model_name 1.5B-v12 --num_queries 50
    ```
 
    **Parameters:**
