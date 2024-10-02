@@ -80,6 +80,7 @@ async def process_testset(file_path, api_key, model_name, max_tokens, num_querie
 
 def save_results(results, output_file):
     """Save results to a JSON file."""
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, 'w') as f:
         json.dump(results, f, indent=2)
 
