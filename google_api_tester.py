@@ -9,6 +9,7 @@ from inference_prompt import template
 # Constants
 API_KEY = "AIzaSyD0HiVoAPUNzh3MWNHtuBZby4SWTqxnSvU"
 MAX_TOKENS = 8192
+DEFAULT_MODEL = "tunedModels/train-4gaullhp8hak"
 
 def init_google_client(api_key):
     """Initialize and return the Google API client."""
@@ -54,7 +55,7 @@ def execute_query(client, model_name, text, stream_output=False):
 def main():
     """Execute queries and print their results."""
     parser = argparse.ArgumentParser(description="Run Google API test with a specified model.")
-    parser.add_argument("--model", required=True, help="The model identifier to use for the test.")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="The model identifier to use for the test.")
     args = parser.parse_args()
     
     try:
