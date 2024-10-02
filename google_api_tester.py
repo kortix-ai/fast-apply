@@ -3,8 +3,8 @@ import tiktoken
 import argparse
 import os
 import google.generativeai as genai
-from single_test_prompt import original_code, update_snippet
-from inference_prompt import template
+from tests.single_test_prompt import original_code, update_snippet
+from tests.inference_prompt import template
 
 # Constants
 API_KEY = "AIzaSyD0HiVoAPUNzh3MWNHtuBZby4SWTqxnSvU"
