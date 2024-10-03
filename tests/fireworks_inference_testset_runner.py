@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import requests
 import argparse
-from tqdm.asyncio import tqdm_asyncio
+from tqdm import tqdm
 from inference_prompt import template
 
 # Constants
@@ -91,10 +91,17 @@ async def process_testset(file_path, model_name, max_tokens, num_queries):
     df = load_testset(file_path)
     if num_queries and num_queries < len(df):
         df = df.sample(n=num_queries, random_state=42)  # Use a fixed random state for reproducibility
-    tasks = [asyncio.create_task(process_row(model_name, row, max_tokens)) for row in df.itertuples(index=False)]
+    tasks = [process_row(model_name, row, max_tokens) for row in df.itertuples(index=False)]
     
-    results = await tqdm_asyncio.gather(*tasks, desc="Processing testset")
-    return [result for result in results if result is not None]
+    results = []
+    with tqdm(total=len(tasks), desc="Processing testset") as pbar:
+        for task in asyncio.as_completed(tasks):
+            result = await task
+            if result is not None:
+                results.append(result)
+            pbar.update(1)
+    
+    return results
 
 def save_results(results, output_file):
     """Save results to a JSON file."""
