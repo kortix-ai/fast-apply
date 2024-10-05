@@ -1,7 +1,6 @@
-```markdown
 # Fast Apply: Fine-Tune Llama3 Models
 
-Welcome to **Fast Apply**, a repository dedicated to fine-tuning Llama3 models for enhanced performance and adaptability. This project leverages synthetic data generation, efficient training pipelines, and robust testing methodologies to deliver powerful language models tailored to your needs.
+Welcome to **Fast Apply**, a repository dedicated to fine-tuning Llama3 models for enhanced performance and adaptability. This project leverages synthetic data generation, efficient training pipelines, robust testing methodologies, and streamlined model deployment processes to deliver powerful language models tailored to your needs.
 
 ## Table of Contents
 
@@ -12,9 +11,11 @@ Welcome to **Fast Apply**, a repository dedicated to fine-tuning Llama3 models f
     - [Using OpenAI's API](#using-openais-api)
     - [Using Anthropic's API](#using-anthropics-api)
 5. [Fine-Tuning the Model](#fine-tuning-the-model)
-6. [Testing the Deployed Model](#testing-the-deployed-model)
-7. [Contributing](#contributing)
-8. [License](#license)
+6. [Model Creation](#model-creation)
+7. [Model Deployment](#model-deployment)
+8. [Testing the Deployed Model](#testing-the-deployed-model)
+9. [Contributing](#contributing)
+10. [License](#license)
 
 ## Prerequisites
 
@@ -83,6 +84,8 @@ Ensure you have these API keys ready and set as environment variables.
 │   └── repo_to_dataset.py
 ├── download_model.ipynb
 ├── fireworks/
+│   ├── create_model.sh
+│   ├── deploy.sh
 │   ├── fine-tune/
 │   └── deploy.sh
 ├── html_viewer/
@@ -101,10 +104,10 @@ Ensure you have these API keys ready and set as environment variables.
   - **Subdirectories**:
     - **`anthropic/`**: Scripts for Anthropic data generation.
     - **`openai/`**: Scripts for OpenAI data generation.
-- **`fireworks/`**: Automation scripts for model deployment and fine-tuning.
-  - **`deploy.sh`**: Shell script to deploy the model.
-  - **Subdirectories**:
-    - **`fine-tune/`**: Scripts related to fine-tuning.
+- **`fireworks/`**: Automation scripts for model creation, deployment, and fine-tuning.
+  - **`create_model.sh`**: Shell script to create new model instances using `firectl`.
+  - **`deploy.sh`**: Shell script to deploy models using `firectl`.
+  - **`fine-tune/`**: Scripts related to fine-tuning.
 - **`html_viewer/`**: Contains HTML files for viewing diffs and generated JSON data.
 - **`requirements.txt`**: Lists all Python dependencies.
 - **`tests_evaluate/`**: Contains scripts and modules for evaluating the model.
@@ -125,20 +128,30 @@ Generating high-quality synthetic data is crucial for training robust models. Th
    Use `repo_to_dataset.py` to transform the repository data into a structured dataset:
 
    ```bash
-   python data_generation/repo_to_dataset.py /path/to/your/repo --sample-lt-200 20 --sample-200-999 600 --sample-1000-1999 400 --sample-2000-plus 200
-   ```
-
-   Copy the output Parquet file to your data folder:
-
-   ```bash
-   cp output.parquet data/train2/train_cal_com.parquet
+   python data_generation/repo_to_dataset.py /path/to/your/repo \
+       --sample-lt-100 50 \
+       --sample-100-399 1000 \
+       --sample-400-999 800 \
+       --sample-1000-1999 600 \
+       --sample-2000-2999 400 \
+       --sample-3000-3999 200 \
+       --sample-4000-4999 100 \
+       --sample-5000-9999 50 \
+       --sample-10000-plus 25 \
+       --output output.parquet \
+       --log repo_to_dataset.log \
+       --skip 500 \
+       --debug
    ```
 
    **Parameters:**
-   - `--sample-lt-200`: Number of samples with fewer than 200 tokens.
-   - `--sample-200-999`: Number of samples with 200-999 tokens.
-   - `--sample-1000-1999`: Number of samples with 1000-1999 tokens.
-   - `--sample-2000-plus`: Number of samples with 2000+ tokens.
+
+   - `--sample-lt-100`: Number of samples with fewer than 100 tokens.
+   - `--sample-...`
+   - `--output`: Output Parquet file name (default: `output.parquet`).
+   - `--log`: Log file name (default: `repo.log`).
+   - `--skip`: Skip files with fewer than N tokens (default: 0).
+   - `--debug`: Enable debug mode for additional logging.
 
 3. **Generate Synthetic Data**
 
@@ -234,6 +247,106 @@ Fine-tuning adjusts the pre-trained Llama3 models to better suit specific tasks 
 
    Execute the notebook cells to commence training. Monitor the progress and adjust parameters as needed for optimal performance.
 
+## Model Creation
+
+Creating new model instances is streamlined using the `firectl` tool within the `fireworks/create_model.sh` script. This allows you to instantiate models based on different configurations and base models.
+
+### Models
+
+- **Clone lora adapter**:
+  ```bash
+  git-lfs install
+  git clone <HF-URL>
+  ```
+
+The `create_model.sh` script includes commands to create various model versions. Below are examples of how to create these models:
+
+- **1B Model Versions**
+
+  ```bash
+  # Create 1B-v13
+  firectl create model 1b-v13 1B-v13/ --base-model accounts/fireworks/models/llama-v3p2-1b-instruct -a marko-1d84ff
+  ```
+
+- **8B Model Versions**
+
+  ```bash
+  # Create 8B-v13-2
+  firectl create model 8b-v13-2 8B-v13-2/ --base-model accounts/fireworks/models/llama-v3p1-8b-instruct -a marko-1d84ff
+  ```
+
+- **Speculation Decoding 8B Model**
+
+  ```bash
+  # Create 8B-v13-2-spec3 with speculation decoding
+  firectl create model 8b-v13-2-spec3 8B-v13-2/ \
+    --base-model accounts/fireworks/models/llama-v3p1-8b-instruct \
+    -a marko-1d84ff \
+    --default-draft-model accounts/marko-1d84ff/models/1b-v13-2 \
+    --default-draft-token-count 5
+  ```
+
+### Usage Instructions
+
+1. **Navigate to the Fireworks Directory**
+
+   ```bash
+   cd fireworks
+   ```
+
+2. **Run the `create_model.sh` Script**
+
+   Open the `create_model.sh` file and uncomment the desired model creation command. Then execute the script:
+
+   ```bash
+   bash create_model.sh
+   ```
+
+   Alternatively, you can execute individual `firectl` commands directly in the terminal as shown in the examples above.
+
+## Model Deployment
+
+Deploying your fine-tuned models is made efficient with the `fireworks/deploy.sh` script, which utilizes the `firectl` tool to handle deployment tasks.
+
+### Deployment Commands
+
+The `deploy.sh` script contains commands to deploy specific models. Below are examples:
+
+- **Deploy 8B-v12 Model**
+
+  ```bash
+  firectl deploy accounts/marko-1d84ff/models/8b-v12 -a marko-1d84ff
+  ```
+
+- **Deploy Specific Model Version**
+
+  ```bash
+  firectl deploy accounts/marko-1d84ff/models/1b46eacab949440ab93ad70e72df8428
+  ```
+
+### Usage Instructions
+
+1. **Navigate to the Fireworks Directory**
+
+   ```bash
+   cd fireworks
+   ```
+
+2. **Run the `deploy.sh` Script**
+
+   Open the `deploy.sh` file and uncomment the desired deployment command. Then execute the script:
+
+   ```bash
+   bash deploy.sh
+   ```
+
+   Alternatively, execute individual `firectl` deployment commands directly in the terminal as shown in the examples above.
+
+### Parameters Explained
+
+- `model_path`: The path to the model you wish to deploy.
+- `-a`: Account identifier associated with the model deployment.
+
 ## Testing the Deployed Model
 
 Ensuring the deployed model performs as expected involves rigorous testing using predefined test sets.
@@ -301,4 +414,3 @@ This project is licensed under the [MIT License](LICENSE).
 ---
 
 Happy Coding!
-```
