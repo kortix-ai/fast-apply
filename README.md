@@ -1,6 +1,7 @@
-# Fast Apply: Fine-Tune Qwen2.5-Coder
+```markdown
+# Fast Apply: Fine-Tune Llama3 Models
 
-Welcome to **Fast Apply**, a repository dedicated to fine-tuning the Qwen2.5-Coder model for enhanced performance and adaptability. This project leverages synthetic data generation, efficient training pipelines, and robust testing methodologies to deliver a powerful coding assistant tailored to your needs.
+Welcome to **Fast Apply**, a repository dedicated to fine-tuning Llama3 models for enhanced performance and adaptability. This project leverages synthetic data generation, efficient training pipelines, and robust testing methodologies to deliver powerful language models tailored to your needs.
 
 ## Table of Contents
 
@@ -73,59 +74,40 @@ Ensure you have these API keys ready and set as environment variables.
 
 ```
 .
-├── Fast_Apply-Fine-tune-Qwen2.5-Coder-1.5B.ipynb
+├── Finetune_Fast-Apply-Llama3-1B-Instruct.ipynb
+├── Finetune_Fast-Apply-Llama3-8B-Instruct.ipynb
+├── README.md
+├── data_generation/
+│   ├── anthropic/
+│   ├── openai/
+│   └── repo_to_dataset.py
 ├── download_model.ipynb
-├── html_viewer
-│   ├── diff-viewer-debug.html
-│   └── generated_data_json-viewer.html
-├── repo
-│   ├── civitai
-│   ├── documenso
-│   ├── dub
-│   ├── fastapi
-│   ├── next.js
-│   ├── open-resume
-│   ├── papermark
-│   ├── photoshot
-│   └── refine
-├── data_generation
-│   ├── repo_to_dataset.py
-│   ├── openai
-│   │   ├── README.md
-│   │   ├── batch_processor.py
-│   │   ├── prepare_batch_data.py
-│   │   ├── prompt.py
-│   │   └── send_batch_request.py
-│   └── anthropic
-│       ├── prompt_template.py
-│       └── synthetic_data_generator.py
+├── fireworks/
+│   ├── fine-tune/
+│   └── deploy.sh
+├── html_viewer/
 ├── requirements.txt
-├── synthetic_data_generator.py
-├── synthetic_data_prompt.py
-└── utils
-    ├── generate_synthetic_data_prompts_version.xml
-    ├── merge_parquet.py
-    ├── parquet_to_jsonl.py
-    └── print_parquet_columns.py
+├── tests_evaluate/
+└── utils/
 ```
 
 ### Key Files and Directories
 
-- **`Fast_Apply-Fine-tune-Qwen2.5-Coder-1.5B.ipynb`**: Jupyter notebook for fine-tuning the Qwen2.5-Coder model.
+- **`Finetune_Fast-Apply-Llama3-1B-Instruct.ipynb`**: Jupyter notebook for fine-tuning the Llama3 1B model.
+- **`Finetune_Fast-Apply-Llama3-8B-Instruct.ipynb`**: Jupyter notebook for fine-tuning the Llama3 8B model.
 - **`download_model.ipynb`**: Notebook to download the pre-trained model weights.
-- **`html_viewer/`**: Contains HTML files for viewing diffs and generated JSON data.
-- **`repo/`**: Submodules and related projects integrated into the main repository.
 - **`data_generation/`**: Contains scripts and modules for data generation using OpenAI and Anthropic APIs.
   - **`repo_to_dataset.py`**: Converts repository data into a structured dataset.
-  - **`openai/`**: Scripts for generating synthetic data using OpenAI's API.
-    - **`batch_processor.py`**: Processes batch files and calculates costs.
-    - **`prepare_batch_data.py`**: Prepares batch data for OpenAI's Batch API.
-    - **`prompt.py`**: Defines prompt templates and generation functions.
-    - **`send_batch_request.py`**: Sends batch requests to OpenAI's Batch API.
-  - **`anthropic/`**: Scripts for generating synthetic data using Anthropic's API.
-    - **`prompt_template.py`**: Defines prompt templates for Anthropic's API.
-    - **`synthetic_data_generator.py`**: Generates synthetic data using Anthropic's API.
+  - **Subdirectories**:
+    - **`anthropic/`**: Scripts for Anthropic data generation.
+    - **`openai/`**: Scripts for OpenAI data generation.
+- **`fireworks/`**: Automation scripts for model deployment and fine-tuning.
+  - **`deploy.sh`**: Shell script to deploy the model.
+  - **Subdirectories**:
+    - **`fine-tune/`**: Scripts related to fine-tuning.
+- **`html_viewer/`**: Contains HTML files for viewing diffs and generated JSON data.
 - **`requirements.txt`**: Lists all Python dependencies.
+- **`tests_evaluate/`**: Contains scripts and modules for evaluating the model.
 - **`utils/`**: Utility scripts for data processing and management.
 
 ## Data Generation Pipeline
@@ -196,11 +178,11 @@ Generating high-quality synthetic data is crucial for training robust models. Th
    # Prepare batch data
    python data_generation/openai/prepare_batch_data.py -i data/train2/train_cal_com.parquet -o data/train2/batch2/
 
-   # Process batch files
-   python data_generation/openai/batch_processor.py -i data/train2/batch2/ -o data/train2/train_batch_cal_com.parquet
-
    # Send batch requests
    python data_generation/openai/send_batch_request.py -bd data/train2/batch2/ -c 5
+
+   # Process batch files
+   python data_generation/openai/batch_processor.py -i data/train2/batch2/ -o data/train2/train_batch_cal_com.parquet
    ```
 
    ### Using Anthropic's API
@@ -238,11 +220,11 @@ Generating high-quality synthetic data is crucial for training robust models. Th
 
 ## Fine-Tuning the Model
 
-Fine-tuning adjusts the pre-trained Qwen2.5-Coder model to better suit specific tasks or datasets.
+Fine-tuning adjusts the pre-trained Llama3 models to better suit specific tasks or datasets.
 
 1. **Launch the Fine-Tuning Notebook**
 
-   Open `Fast_Apply-Fine-tune-Qwen2.5-Coder-1.5B.ipynb` using [RunPod](https://www.runpod.ai/) or your preferred Jupyter environment.
+   Open `Finetune_Fast-Apply-Llama3-1B-Instruct.ipynb` or `Finetune_Fast-Apply-Llama3-8B-Instruct.ipynb` using [RunPod](https://www.runpod.ai/) or your preferred Jupyter environment.
 
 2. **Configure Training Parameters**
 
@@ -261,7 +243,7 @@ Ensuring the deployed model performs as expected involves rigorous testing using
    Utilize the `vllm_serverless_tester.py` script to evaluate the model's performance on a serverless infrastructure:
 
    ```bash
-   python tests/vllm_serverless_tester.py --pod your_pod_id --api_key your_api_key
+   python tests_evaluate/vllm_runpod/vllm_serverless_tester.py --pod your_pod_id --api_key your_api_key
    ```
 
 2. **Benchmark Inference Test Set**
@@ -269,7 +251,7 @@ Ensuring the deployed model performs as expected involves rigorous testing using
    Assess the model's inference capabilities with the `inference_testset_runner.py` script:
 
    ```bash
-   python tests/inference_testset_runner.py data/test/testset.parquet --pod your_pod_id --api_key your_api_key --model_name 1.5B-v12 --num_queries 50 --max_tokens 2000
+   python tests_evaluate/inference_testset_runner.py data/test/testset.parquet --pod your_pod_id --api_key your_api_key --model_name 3B-v12 --num_queries 50 --max_tokens 2000
    ```
 
    **Parameters:**
@@ -319,3 +301,4 @@ This project is licensed under the [MIT License](LICENSE).
 ---
 
 Happy Coding!
+```
