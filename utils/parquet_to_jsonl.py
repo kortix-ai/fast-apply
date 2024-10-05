@@ -13,10 +13,9 @@ def parquet_to_jsonl(input_file, output_file):
         for _, row in tqdm(df.iterrows(), total=len(df), desc="Converting"):
             # Create a dictionary for each row
             entry = {
-                "instruction": f"Apply changes from <update_snippet> to <original_code>. Output only the complete updated code in <full_updated_code> tag.",
-                "context": f"<original_code>{row['original_code']}</original_code>\n<update_snippet>{row['update_snippet']}</update_snippet>",
-                "response": f"<full_updated_code>{row['final_code']}</full_updated_code>",
-                "category": "closed_qa"
+                "original_code": row['original_code'],
+                "update_snippet": row['update_snippet'],
+                "final_code": row['final_code']
             }
             
             # Write the JSON object to the file, followed by a newline
@@ -25,8 +24,8 @@ def parquet_to_jsonl(input_file, output_file):
 
 def main():
     parser = argparse.ArgumentParser(description='Convert Parquet file to JSONL format.')
-    parser.add_argument('input_file', help='Input Parquet file path')
-    parser.add_argument('output_file', help='Output JSONL file path')
+    parser.add_argument('-i', '--input_file', required=True, help='Input Parquet file path')
+    parser.add_argument('-o', '--output_file', required=True, help='Output JSONL file path')
     args = parser.parse_args()
 
     parquet_to_jsonl(args.input_file, args.output_file)

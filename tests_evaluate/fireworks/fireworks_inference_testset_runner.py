@@ -5,13 +5,14 @@ import json
 import pandas as pd
 import requests
 import argparse
-from tqdm import tqdm
+from tqdm.asyncio import tqdm_asyncio
 from inference_prompt import template
 
 # Constants
 API_KEY = "fw_3ZhfovPCeNKHpHcEnS9D9HmX"
 MAX_TOKENS = 8192
-DEFAULT_MODEL = "accounts/marko-1d84ff/models/1b-v12"
+MODEL_PREFIX = "accounts/marko-1d84ff/models/"
+DEFAULT_MODEL = "1b-v12"
 URL = "https://api.fireworks.ai/inference/v1/completions"
 
 def count_tokens(text):
@@ -50,7 +51,7 @@ async def execute_query(model_name, text, max_tokens):
         generated_text = result['choices'][0]['text']
         elapsed_time = time.time() - start_time
         total_tokens = count_tokens(text) + count_tokens(generated_text)
-        throughput = total_tokens / elapsed_time
+        throughput = count_tokens(generated_text) / elapsed_time
 
         return {
             "generated_text": generated_text,
@@ -91,17 +92,11 @@ async def process_testset(file_path, model_name, max_tokens, num_queries):
     df = load_testset(file_path)
     if num_queries and num_queries < len(df):
         df = df.sample(n=num_queries, random_state=42)  # Use a fixed random state for reproducibility
-    tasks = [process_row(model_name, row, max_tokens) for row in df.itertuples(index=False)]
+    # tasks = [process_row(model_name, row, max_tokens) for row in df.itertuples(index=False)]
+    tasks = [ asyncio.create_task(process_row(model_name, row, max_tokens)) for row in df.itertuples(index=False)]
     
-    results = []
-    with tqdm(total=len(tasks), desc="Processing testset") as pbar:
-        for task in asyncio.as_completed(tasks):
-            result = await task
-            if result is not None:
-                results.append(result)
-            pbar.update(1)
-    
-    return results
+    results = await tqdm_asyncio.gather(*tasks, desc="Processing testset")
+    return [result for result in results if result is not None]
 
 def save_results(results, output_file):
     """Save results to a JSON file."""
@@ -111,13 +106,14 @@ def save_results(results, output_file):
 async def main():
     parser = argparse.ArgumentParser(description="Generate output for a testset using Fireworks API.")
     parser.add_argument("input_file", help="Path to the input Parquet or JSON file")
-    parser.add_argument("--model_name", default=DEFAULT_MODEL, help="Model name")
+    parser.add_argument("-m", "--model_name", default=DEFAULT_MODEL, help="Model name (without prefix)")
     parser.add_argument("--max_tokens", type=int, default=MAX_TOKENS, help="Maximum number of tokens for generation")
     parser.add_argument("--num_queries", type=int, help="Number of queries to run (if less than max examples)")
     args = parser.parse_args()
 
-    results = await process_testset(args.input_file, args.model_name, args.max_tokens, args.num_queries)
-    output_file = f"data/testset_results_{args.model_name.split('/')[-1]}.json"
+    full_model_name = MODEL_PREFIX + args.model_name
+    results = await process_testset(args.input_file, full_model_name, args.max_tokens, args.num_queries)
+    output_file = f"data/testset_results_{args.model_name}.json"
     save_results(results, output_file)
     print(f"Results saved to {output_file}")
 

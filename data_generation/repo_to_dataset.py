@@ -47,7 +47,8 @@ def should_ignore(path, is_dir=False):
         '.map', '.otf', '.snap', '.svelte', '.template',
         '.tpl', '.txt', '.webp',
         '.mdx', '.snapshot', '.pem', '.pic', '.config', '.patch',
-        '.alt', '.approvers', '.avif', '.bak', '.default', '.dev', '.development', '.empty', '.eot', '.glb', '.i18n-images', '.icns', '.local', '.new', '.plist', '.po', '.production', '.sample', '.skip', '.stderr', '.test', '.webmanifest', '.xyz', '.drawio'
+        '.alt', '.approvers', '.avif', '.bak', '.default', '.dev', '.development', '.empty', '.eot', '.glb', '.i18n-images', '.icns', '.local', '.new', '.plist', '.po', '.production', '.sample', '.skip', '.stderr', '.test', '.webmanifest', '.xyz', '.drawio',
+        '.env',
     ]
     
     name = os.path.basename(path)
@@ -59,16 +60,20 @@ def should_ignore(path, is_dir=False):
         return name in ignore_list or file_extension in ignore_extensions
 
 def count_lines_and_tokens(file_path):
-    with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
-        content = file.read()
-        lines = content.split('\n')
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
+            content = file.read()
+            lines = content.split('\n')
         
-    enc = tiktoken.get_encoding("cl100k_base")
-    tokens = enc.encode(content)
-    
-    return len(lines), len(tokens)
+        enc = tiktoken.get_encoding("cl100k_base")
+        tokens = enc.encode(content)
+        
+        return len(lines), len(tokens)
+    except FileNotFoundError:
+        print(f"Warning: File not found: {file_path}")
+        return 0, 0
 
-def process_directory(path, debug=False):
+def process_directory(path, skip_tokens=0, debug=False):
     results = []
     file_data = []
     all_extensions = set()
@@ -94,15 +99,17 @@ def process_directory(path, debug=False):
                     
                     line_count, token_count = count_lines_and_tokens(file_path)
                     
-                    if token_count >= 1000:
-                        content = read_file_content(file_path)
-                        results.append((file_path, content))
+                    if token_count >= skip_tokens:
+                        if line_count > 0 or token_count > 0:
+                            if token_count >= 1000:
+                                content = read_file_content(file_path)
+                                results.append((file_path, content))
 
-                    file_data.append({
-                        'file_path': file_path,
-                        'line_count': line_count,
-                        'token_count': token_count
-                    })
+                            file_data.append({
+                                'file_path': file_path,
+                                'line_count': line_count,
+                                'token_count': token_count
+                            })
 
                     pbar.update(1)
 
@@ -118,10 +125,10 @@ def process_directory(path, debug=False):
 
     # Updated bins for token distribution
     token_distribution = pd.cut(df['token_count'], 
-                                bins=[0, 200, 1000, 2000, 3000, 4000, 5000, 10000, np.inf], 
-                                labels=['<200 tokens', '200-999 tokens', '1000-1999 tokens', '2000-2999 tokens', 
-                                        '3000-3999 tokens', '4000-4999 tokens', '5000-9999 tokens', 
-                                        '10000+ tokens'])
+                                bins=[0, 100, 400, 1000, 2000, 3000, 4000, 5000, 10000, np.inf], 
+                                labels=['<100 tokens', '100-399 tokens', '400-999 tokens', '1000-1999 tokens', 
+                                        '2000-2999 tokens', '3000-3999 tokens', '4000-4999 tokens', 
+                                        '5000-9999 tokens', '10000+ tokens'])
 
     token_dist_dict = token_distribution.value_counts().to_dict()
 
@@ -141,8 +148,9 @@ def save_to_parquet(results, output_file):
 def sample_dataset(df, sample_sizes):
     # Updated bins for sampling based on tokens
     bins = {
-        '<200 tokens': (0, 200),
-        '200-999 tokens': (200, 1000),
+        '<100 tokens': (0, 100),
+        '100-399 tokens': (100, 400),
+        '400-999 tokens': (400, 1000),
         '1000-1999 tokens': (1000, 2000),
         '2000-2999 tokens': (2000, 3000),
         '3000-3999 tokens': (3000, 4000),
@@ -189,10 +197,10 @@ def print_sample_statistics(sampled_df):
     
     # Updated bins for token distribution in sample statistics
     token_distribution = pd.cut(sampled_df['token_count'], 
-                                bins=[0, 200, 1000, 2000, 3000, 4000, 5000, 10000, np.inf], 
-                                labels=['<200 tokens', '200-999 tokens', '1000-1999 tokens', '2000-2999 tokens', 
-                                        '3000-3999 tokens', '4000-4999 tokens', '5000-9999 tokens', 
-                                        '10000+ tokens'])
+                                bins=[0, 100, 400, 1000, 2000, 3000, 4000, 5000, 10000, np.inf], 
+                                labels=['<100 tokens', '100-399 tokens', '400-999 tokens', '1000-1999 tokens', 
+                                        '2000-2999 tokens', '3000-3999 tokens', '4000-4999 tokens', 
+                                        '5000-9999 tokens', '10000+ tokens'])
     print("\nToken Distribution in Sample:")
     for category, count in token_distribution.value_counts().items():
         print(f"  {category}: {count}")
@@ -202,15 +210,17 @@ def main():
     parser.add_argument('path', help='Path to the directory to process')
     parser.add_argument('--output', default='output.parquet', help='Output file name (default: output.parquet)')
     parser.add_argument('--log', default='repo.log', help='Log file name (default: repo.log)')
-    parser.add_argument('--sample-lt-200', type=int, default=50, help='Number of samples for files with <200 tokens')
-    parser.add_argument('--sample-200-999', type=int, default=50, help='Number of samples for files with 200-999 tokens')
-    parser.add_argument('--sample-1000-1999', type=int, default=300, help='Number of samples for files with 1000-1999 tokens')
-    parser.add_argument('--sample-2000-2999', type=int, default=0, help='Number of samples for files with 2000-2999 tokens')
-    parser.add_argument('--sample-3000-3999', type=int, default=0, help='Number of samples for files with 3000-3999 tokens')
+    parser.add_argument('--sample-lt-100', type=int, default=0, help='Number of samples for files with <100 tokens')
+    parser.add_argument('--sample-100-399', type=int, default=1000, help='Number of samples for files with 100-399 tokens')
+    parser.add_argument('--sample-400-999', type=int, default=1000, help='Number of samples for files with 400-999 tokens')
+    parser.add_argument('--sample-1000-1999', type=int, default=1000, help='Number of samples for files with 1000-1999 tokens')
+    parser.add_argument('--sample-2000-2999', type=int, default=1000, help='Number of samples for files with 2000-2999 tokens')
+    parser.add_argument('--sample-3000-3999', type=int, default=1000, help='Number of samples for files with 3000-3999 tokens')
     parser.add_argument('--sample-4000-4999', type=int, default=0, help='Number of samples for files with 4000-4999 tokens')
     parser.add_argument('--sample-5000-9999', type=int, default=0, help='Number of samples for files with 5000-9999 tokens')
     parser.add_argument('--sample-10000-plus', type=int, default=0, help='Number of samples for files with 10000+ tokens')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+    parser.add_argument('--skip', type=int, default=0, help='Skip files with less than N tokens')
     args = parser.parse_args()
 
     # Set up logging
@@ -219,11 +229,12 @@ def main():
     start_time = time.time()
     (results, total_files, total_lines, total_tokens, included_files,
      max_lines, max_tokens, file_with_max_lines, file_with_max_tokens,
-     token_distribution, all_extensions, df, no_extension_files) = process_directory(args.path, args.debug)
+     token_distribution, all_extensions, df, no_extension_files) = process_directory(args.path, args.skip, args.debug)
 
     sample_sizes = {
-        '<200 tokens': args.sample_lt_200,
-        '200-999 tokens': args.sample_200_999,
+        '<100 tokens': args.sample_lt_100,
+        '100-399 tokens': args.sample_100_399,
+        '400-999 tokens': args.sample_400_999,
         '1000-1999 tokens': args.sample_1000_1999,
         '2000-2999 tokens': args.sample_2000_2999,
         '3000-3999 tokens': args.sample_3000_3999,

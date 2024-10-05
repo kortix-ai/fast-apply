@@ -4,13 +4,14 @@ import argparse
 import os
 import requests
 import json
-from tests.single_test_prompt import original_code, update_snippet
-from tests.inference_prompt import template
+from tests_evaluate.single_test_prompt import original_code, update_snippet
+from tests_evaluate.inference_prompt import template
 
 # Constants
 API_KEY = "fw_3ZhfovPCeNKHpHcEnS9D9HmX"
 MAX_TOKENS = 8192
-DEFAULT_MODEL = "accounts/marko-1d84ff/models/1b"
+DEFAULT_PATTERN = "accounts/marko-1d84ff/models/"
+DEFAULT_MODEL = "8b-v12"
 URL = "https://api.fireworks.ai/inference/v1/completions"
 
 def count_tokens(text):
@@ -79,7 +80,7 @@ def main():
     args = parser.parse_args()
     
     try:
-        model_name = args.model
+        model_name = DEFAULT_PATTERN + args.model
         
         text = template.format(original_code=original_code, update_snippet=update_snippet)
         

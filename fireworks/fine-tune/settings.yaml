@@ -1,0 +1,23 @@
+# The ID of the dataset you created above.
+dataset: fast-apply-v1
+
+text_completion:
+  # How the fields of the JSON dataset should be formatted into the input text.
+  input_template: |
+    <|begin_of_text|><|start_header_id|>system<|end_header_id|> Merge all changes from the update snippet to the code below, ensuring that every modification is fully integrated. Maintain the code's structure, order, comments, and indentation precisely. Do not use any placeholders, ellipses, or omit any sections in <updated-code>. Only output the updated code; do not include any additional text, explanations, or fences. The updated code MUST be enclosed in <updated-code> tags.<|eot_id|>
+    <|start_header_id|>user<|end_header_id|>
+
+    <update>{update_snippet}</update>
+
+    <code>{original_code}</code><|eot_id|>
+    
+  # How the fields of the JSON dataset should be formatted into the output text.
+  output_template: "<|start_header_id|>assistant<|end_header_id|> Here's the updated-code with fully integrated changes, start the tag now: <updated-code>{final_code}</updated-code> <|eot_id|>"
+
+# The Fireworks model name of the base model.
+base_model: accounts/fireworks/models/llama-v3p2-1b-instruct
+
+# Commented out alternative base models:
+# base_model: accounts/fireworks/models/llama-v3p1-8b-instruct
+# base_model: accounts/fireworks/models/llama-v3p2-3b-instruct
+# base_model: accounts/fireworks/models/llama-v3p1-70b-instruct

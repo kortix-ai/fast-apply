@@ -9,9 +9,10 @@ import argparse
 import asyncio
 import json
 from dotenv import load_dotenv
-from synthetic_data_prompt import PROMPT
+from prompt_template import PROMPT
 from tqdm.asyncio import tqdm
 from aiolimiter import AsyncLimiter
+import sys
 
 # Load environment variables
 load_dotenv()
@@ -42,6 +43,12 @@ async def init_db(db):
         )
     ''')
     await db.commit()
+
+async def clear_cache(db):
+    """Clear all entries from the cache table."""
+    await db.execute('DELETE FROM cache')
+    await db.commit()
+    print("Cache cleared successfully.")
 
 async def get_from_cache(db, original_code):
     """Retrieve a result from the cache."""
@@ -154,14 +161,21 @@ def save_json(df, json_file):
     df.to_json(json_file, orient='records', indent=2)
     print(f"JSON file saved to {json_file}")
 
-async def main(parquet_file):
+async def main(parquet_file, test_mode=False, should_clear_cache=False):
     global input_tokens, output_tokens
     df = load_parquet(parquet_file)
     display_parquet_info(df)
 
+    if test_mode:
+        df = df.head(5)
+        print("Test mode: Processing only the first 5 rows")
+
     async with aiosqlite.connect(DB_FILE) as db:
         # Initialize the database
         await init_db(db)
+
+        if should_clear_cache:
+            await clear_cache(db)
 
         # Prepare tasks
         tasks = [asyncio.create_task(process_row(db, idx, row)) for idx, row in df.iterrows()]
@@ -182,8 +196,9 @@ async def main(parquet_file):
             print(f"Removing {len(rows_to_delete)} rows due to content filtering errors")
             df = df.drop(rows_to_delete)
 
-        # Save final progress
-        save_parquet(df, parquet_file)
+        if not test_mode:
+            # Save final progress
+            save_parquet(df, parquet_file)
         
         # Save as JSON
         json_file = parquet_file.rsplit('.', 1)[0] + '.json'
@@ -194,11 +209,17 @@ async def main(parquet_file):
         # Update token count JSON file
         update_token_count_json(input_tokens, output_tokens)
 
+    if test_mode:
+        print("Test mode: JSON output:")
+        print(df.to_json(orient='records', indent=2))
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process a Parquet file and generate code updates.")
     parser.add_argument("--parquet_file", type=str, default="data/output.parquet",
                         help="Path to the input Parquet file (default: data/output.parquet)")
+    parser.add_argument("--test", action="store_true", help="Run in test mode (process only 5 prompts)")
+    parser.add_argument("--clear-cache", action="store_true", help="Clear the cache before processing")
     args = parser.parse_args()
 
-    asyncio.run(main(args.parquet_file))
+    asyncio.run(main(args.parquet_file, test_mode=args.test, should_clear_cache=args.clear_cache))
 

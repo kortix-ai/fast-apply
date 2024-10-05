@@ -28,6 +28,7 @@ def execute_query(client, model_name, text, stream_output=False):
     
     generation_config = {
         "max_output_tokens": MAX_TOKENS,
+        "temperature": 0,
         "response_mime_type": "text/plain",
     }
     
@@ -69,7 +70,7 @@ def main():
         results = execute_query(client, model_name, text, stream_output=True)
         print(f"\n\nTest Query Throughput: {results['throughput']:.2f} tokens/second")
         
-        for i in range(1, 3):
+        for i in range(1, 5):
             print(f"\nQuery {i}:")
             results = execute_query(client, model_name, text)
             print(f"Throughput: {results['throughput']:.2f} tokens/second")
