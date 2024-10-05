@@ -14,8 +14,10 @@ Welcome to **Fast Apply**, a repository dedicated to fine-tuning Llama3 models f
 6. [Model Creation](#model-creation)
 7. [Model Deployment](#model-deployment)
 8. [Testing the Deployed Model](#testing-the-deployed-model)
-9. [Contributing](#contributing)
-10. [License](#license)
+    - [Inference Test Set Runner](#inference-test-set-runner)
+    - [Fireworks Inference Test Set Runner](#fireworks-inference-test-set-runner)
+    - [Fireworks Throughput Tester](#fireworks-throughput-tester)
+    - [Evaluation Script](#evaluation-script)
 
 ## Prerequisites
 
@@ -32,44 +34,6 @@ Additionally, to utilize the OpenAI and Anthropic data generation pipelines, you
 - **Anthropic API Key**
 
 Ensure you have these API keys ready and set as environment variables.
-
-## Installation
-
-1. **Clone the Repository**
-
-   ```bash
-   git clone https://github.com/kortix-ai/fast-apply.git
-   cd fast-apply
-   ```
-
-2. **Create a Virtual Environment**
-
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install Dependencies**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set Up Environment Variables**
-
-   Create a `.env` file in the root directory and add your API keys:
-
-   ```env
-   OPENAI_API_KEY=your_openai_api_key_here
-   ANTHROPIC_API_KEY=your_anthropic_api_key_here
-   ```
-
-   Alternatively, you can export them directly in your shell:
-
-   ```bash
-   export OPENAI_API_KEY=your_openai_api_key_here
-   export ANTHROPIC_API_KEY=your_anthropic_api_key_here
-   ```
 
 ## Repository Structure
 
@@ -91,7 +55,14 @@ Ensure you have these API keys ready and set as environment variables.
 ├── html_viewer/
 ├── requirements.txt
 ├── tests_evaluate/
-└── utils/
+│   ├── evaluate.py
+│   ├── fireworks/
+│   │   ├── fireworks_inference_testset_runner.py
+│   │   └── test_fireworks.py
+│   └── single_test_prompt.py
+├── utils/
+│   ├── merge_parquet.py
+│   └── parquet_to_jsonl.py
 ```
 
 ### Key Files and Directories
@@ -111,7 +82,13 @@ Ensure you have these API keys ready and set as environment variables.
 - **`html_viewer/`**: Contains HTML files for viewing diffs and generated JSON data.
 - **`requirements.txt`**: Lists all Python dependencies.
 - **`tests_evaluate/`**: Contains scripts and modules for evaluating the model.
+  - **`evaluate.py`**: Script to evaluate the differences between generated code and final code.
+  - **`fireworks/`**:
+    - **`fireworks_inference_testset_runner.py`**: Script to run inference tests on a given test set using the Fireworks API.
+    - **`test_fireworks.py`**: Script to test the throughput and performance of deployed Fireworks models.
 - **`utils/`**: Utility scripts for data processing and management.
+  - **`merge_parquet.py`**: Merges multiple Parquet files into one.
+  - **`parquet_to_jsonl.py`**: Converts Parquet datasets to JSONL format.
 
 ## Data Generation Pipeline
 
@@ -349,68 +326,133 @@ The `deploy.sh` script contains commands to deploy specific models. Below are ex
 
 ## Testing the Deployed Model
 
-Ensuring the deployed model performs as expected involves rigorous testing using predefined test sets.
+Ensuring the deployed model performs as expected involves rigorous testing using predefined test sets and evaluation scripts. This repository provides several tools to facilitate comprehensive testing.
 
-1. **Run Serverless vLLM Tests**
+### Inference Test Set Runner
 
-   Utilize the `vllm_serverless_tester.py` script to evaluate the model's performance on a serverless infrastructure:
+The `fireworks_inference_testset_runner.py` script allows you to benchmark the inference capabilities of your deployed models.
 
-   ```bash
-   python tests_evaluate/vllm_runpod/vllm_serverless_tester.py --pod your_pod_id --api_key your_api_key
-   ```
+**Usage:**
 
-2. **Benchmark Inference Test Set**
+```bash
+python tests_evaluate/fireworks/fireworks_inference_testset_runner.py --input_file data/test/testset.parquet --model_name your-model-name --max_tokens 2000 --num_queries 50
+```
 
-   Assess the model's inference capabilities with the `inference_testset_runner.py` script:
+**Parameters:**
 
-   ```bash
-   python tests_evaluate/inference_testset_runner.py data/test/testset.parquet --pod your_pod_id --api_key your_api_key --model_name 3B-v12 --num_queries 50 --max_tokens 2000
-   ```
+- `--input_file`: Path to the input Parquet or JSON file containing the test set.
+- `--model_name`: Name of the model variant to test (e.g., `3B-v12`).
+- `--max_tokens`: Maximum number of tokens per query.
+- `--num_queries`: Number of queries to execute (optional).
 
-   **Parameters:**
-   - `--pod`: Identifier for the RunPod instance.
-   - `--model_name`: Name of the model variant to test.
-   - `--num_queries`: Number of first test queries to execute.
-   - `--max_tokens`: Maximum tokens per query.
+**Example Workflow:**
 
-3. **Evaluate Results**
+```bash
+python tests_evaluate/fireworks/fireworks_inference_testset_runner.py \
+    --input_file data/test/testset.parquet \
+    --model_name 3B-v12 \
+    --max_tokens 2000 \
+    --num_queries 50
+```
 
-   Review the output logs and metrics to determine the model's accuracy, throughput, and overall performance.
+### Fireworks Inference Test Set Runner
 
-## Contributing
+This script is designed to perform inference on a given test set using the Fireworks API asynchronously, allowing for efficient processing of large datasets.
 
-Contributions are welcome! Please follow these steps to contribute:
+**Usage:**
 
-1. **Fork the Repository**
+```bash
+python tests_evaluate/fireworks/fireworks_inference_testset_runner.py --input_file path/to/testset.parquet --model_name your-model-name --max_tokens 2000 --num_queries 100
+```
 
-   Click the "Fork" button at the top-right corner of the repository page.
+**Parameters:**
 
-2. **Create a New Branch**
+- `--input_file`: Path to the input Parquet or JSON file.
+- `--model_name`: Name of the model to use for inference.
+- `--max_tokens`: Maximum tokens per generation.
+- `--num_queries`: Number of queries to process (optional).
 
-   ```bash
-   git checkout -b feature/YourFeatureName
-   ```
+**Example:**
 
-3. **Commit Your Changes**
+```bash
+python tests_evaluate/fireworks/fireworks_inference_testset_runner.py \
+    --input_file data/test/testset.parquet \
+    --model_name 8B-v13-2 \
+    --max_tokens 1500 \
+    --num_queries 75
+```
 
-   ```bash
-   git commit -m "Add your descriptive commit message here"
-   ```
+### Fireworks Throughput Tester
 
-4. **Push to the Branch**
+The `test_fireworks.py` script evaluates the throughput and performance of your deployed Fireworks models by measuring the number of tokens processed per second.
 
-   ```bash
-   git push origin feature/YourFeatureName
-   ```
+**Usage:**
 
-5. **Create a Pull Request**
+```bash
+python tests_evaluate/fireworks/test_fireworks.py --model your-model-name
+```
 
-   Navigate to the original repository and create a pull request from your forked branch.
+**Parameters:**
 
-## License
+- `--model`: The model identifier to use for the test (e.g., `8b-v12`).
 
-This project is licensed under the [MIT License](LICENSE).
+**Example Workflow:**
 
+```bash
+python tests_evaluate/fireworks/test_fireworks.py --model 8b-v12
+```
+
+**What It Does:**
+
+- Executes streaming and non-streaming queries against the specified model.
+- Measures and prints the throughput in tokens per second.
+- Provides insights into the model's performance under different query loads.
+
+### Evaluation Script
+
+The `evaluate.py` script assesses the quality of the generated code by comparing it against the final code using line difference metrics.
+
+**Usage:**
+
+```bash
+python tests_evaluate/evaluate.py input_file1.json input_file2.json --output_file results.json -n 100
+```
+
+**Parameters:**
+
+- `input_files`: One or more JSON files containing entries with `final_code` and `generated_text`.
+- `--output_file`: (Optional) Path to save the diff results in JSON format.
+- `-n`: (Optional) Number of examples to process from each input file.
+
+**Example Workflow:**
+
+```bash
+python tests_evaluate/evaluate.py \
+    tests_evaluate/results1.json \
+    tests_evaluate/results2.json \
+    --output_file evaluation_results.json \
+    -n 500
+```
+
+**What It Does:**
+
+- Parses the `generated_text` to extract code snippets enclosed within `<updated-code>` or `<update-code>` tags.
+- Compares the extracted generated code with the `final_code` using the unified diff algorithm.
+- Calculates the total number of differing lines, added lines, and removed lines.
+- Computes the accuracy score based on the number of fully corrected examples (where there are no differences).
+- Outputs detailed statistics for each input file, including average and median diffs, average added/removed lines, and accuracy percentage.
+
+**Sample Output:**
+
+```
+Statistics for results1.json:
+Total entries: 100
+Average total diff: 2.35
+Median total diff: 2.00
+Average added lines: 1.20
+Average removed lines: 1.15
+Accuracy score: 85.00%
+```
 ---
 
 Happy Coding!
