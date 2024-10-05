@@ -21,3 +21,6 @@ data/
 .draft*
 
 **/*.Identifier
+
+
+*.xml
