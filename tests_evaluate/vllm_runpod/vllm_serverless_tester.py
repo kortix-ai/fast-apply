@@ -2,8 +2,6 @@ import time
 import tiktoken
 import argparse
 from openai import OpenAI
-from single_test_prompt import original_code, update_snippet
-from inference_prompt import template
 
 # Constants
 API_KEY = "PAP4OD5L12KDG6NHBL6UNX3TOOK78C1GH9MKM9UZ"
@@ -53,6 +51,11 @@ def main():
     args = parser.parse_args()
 
     try:
+        from tests_evaluate.common.inference_prompt import template
+        from tests_evaluate.common.single_test_prompt import original_code, update_snippet
+
+        text = template.format(original_code=original_code, update_snippet=update_snippet)
+
         client = init_openai_client(args.pod)
         response = client.models.list()
         if not response.data:

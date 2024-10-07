@@ -5,7 +5,7 @@ import json
 import pandas as pd
 from openai import AsyncOpenAI
 from tqdm.asyncio import tqdm, tqdm_asyncio
-from inference_prompt import template
+from tests_evaluate.common.inference_prompt import template
 import argparse
 
 def init_openai_client(pod, api_key):

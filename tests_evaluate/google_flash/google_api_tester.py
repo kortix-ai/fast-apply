@@ -3,8 +3,6 @@ import tiktoken
 import argparse
 import os
 import google.generativeai as genai
-from tests.single_test_prompt import original_code, update_snippet
-from tests.inference_prompt import template
 
 # Constants
 API_KEY = "AIzaSyD0HiVoAPUNzh3MWNHtuBZby4SWTqxnSvU"
@@ -53,16 +51,27 @@ def execute_query(client, model_name, text, stream_output=False):
         "throughput": throughput
     }
 
+def read_file(file_path):
+    """Read and return the contents of a file."""
+    with open(file_path, 'r') as file:
+        return file.read()
+
 def main():
     """Execute queries and print their results."""
     parser = argparse.ArgumentParser(description="Run Google API test with a specified model.")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="The model identifier to use for the test.")
+    parser.add_argument("--prompt-template", default="tests_evaluate/inference_prompt.py", help="File path for the prompt template.")
+    parser.add_argument("--single-test-prompt", default="tests_evaluate/example/single_test_prompt.py", help="File path for the single test prompt.")
     args = parser.parse_args()
     
     try:
         client = init_google_client(API_KEY)
         model_name = args.model
         
+        from tests_evaluate.common.inference_prompt import template
+        from tests_evaluate.common.single_test_prompt import original_code, update_snippet
+        
+        # Construct the final prompt
         text = template.format(original_code=original_code, update_snippet=update_snippet)
         
         print(f"Running test with model: {model_name}")

@@ -4,8 +4,8 @@ import argparse
 import os
 import requests
 import json
-from tests_evaluate.single_test_prompt import original_code, update_snippet
-from tests_evaluate.inference_prompt import template
+from tests_evaluate.common.single_test_prompt import original_code, update_snippet
+from tests_evaluate.common.inference_prompt import template
 
 # Constants
 API_KEY = "fw_3ZhfovPCeNKHpHcEnS9D9HmX"

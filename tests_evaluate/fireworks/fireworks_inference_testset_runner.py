@@ -6,7 +6,7 @@ import pandas as pd
 import requests
 import argparse
 from tqdm.asyncio import tqdm_asyncio
-from inference_prompt import template
+from tests_evaluate.common.inference_prompt import template
 
 # Constants
 API_KEY = "fw_3ZhfovPCeNKHpHcEnS9D9HmX"

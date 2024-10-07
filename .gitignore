@@ -3,6 +3,9 @@ unsloth/
 repo/
 outputs/
 wandb/
+fireworks/model/
+
+model/
 
 *.parquet
 
@@ -24,3 +27,5 @@ data/
 
 
 *.xml
+
+log/
