@@ -9,17 +9,6 @@ from inference_prompt import template
 API_KEY = "PAP4OD5L12KDG6NHBL6UNX3TOOK78C1GH9MKM9UZ"
 MAX_TOKENS = 4192
 
-# template="""Merge all changes from the <update_snippet> into the <original_code>, producing a fully updated version of the code. Only modify the parts of the original_code that are specified in the update_snippet; keep all other parts unchanged. Provide the result as <updated_code>.
-
-# ### Original Code:
-# <original_code>{original_code}</original_code>
-
-# ### Update Snippet:
-# <update_snippet>{update_snippet}</update_snippet>
-
-# ### Updated Code:
-# """
-
 
 def init_openai_client(pod):
     """Initialize and return the OpenAI client."""
