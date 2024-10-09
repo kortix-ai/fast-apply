@@ -8,6 +8,7 @@ import google.generativeai as genai
 API_KEY = "AIzaSyD0HiVoAPUNzh3MWNHtuBZby4SWTqxnSvU"
 MAX_TOKENS = 8192
 DEFAULT_MODEL = "tunedModels/train-4gaullhp8hak"
+DEFAULT_NUM_TESTS = 1
 
 def init_google_client(api_key):
     """Initialize and return the Google API client."""
@@ -44,11 +45,19 @@ def execute_query(client, model_name, text, stream_output=False):
         print(generated_text)
     
     elapsed_time = time.time() - start_time
-    total_tokens = count_tokens(generated_text)
+    input_tokens = count_tokens(text)
+    output_tokens = count_tokens(generated_text)
+    total_tokens = input_tokens + output_tokens
     throughput = total_tokens / elapsed_time
     
     return {
-        "throughput": throughput
+        "throughput": throughput,
+        "elapsed_time": elapsed_time,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+        "generated_text": generated_text,
+        "response": response
     }
 
 def read_file(file_path):
@@ -62,6 +71,7 @@ def main():
     parser.add_argument("--model", default=DEFAULT_MODEL, help="The model identifier to use for the test.")
     parser.add_argument("--prompt-template", default="tests_evaluate/inference_prompt.py", help="File path for the prompt template.")
     parser.add_argument("--single-test-prompt", default="tests_evaluate/example/single_test_prompt.py", help="File path for the single test prompt.")
+    parser.add_argument("-n", "--additional-tests", type=int, default=DEFAULT_NUM_TESTS, help="Number of additional tests to run (default: 1)")
     args = parser.parse_args()
     
     try:
@@ -77,14 +87,40 @@ def main():
         print(f"Running test with model: {model_name}")
         print("Test Query (Streaming):")
         results = execute_query(client, model_name, text, stream_output=True)
-        print(f"\n\nTest Query Throughput: {results['throughput']:.2f} tokens/second")
+        print_results(results)
         
-        for i in range(1, 5):
+        for i in range(1, args.additional_tests + 1):
             print(f"\nQuery {i}:")
             results = execute_query(client, model_name, text)
-            print(f"Throughput: {results['throughput']:.2f} tokens/second")
+            print_results(results)
     except Exception as e:
         print(f"An error occurred: {e}")
+
+def print_results(results):
+    """Print all related information of the response."""
+    print("Response Information:")
+    print(f"  Throughput: {results['throughput']:.2f} tokens/second")
+    print(f"  Elapsed Time: {results['elapsed_time']:.2f} seconds")
+    print(f"  Input Tokens: {results['input_tokens']}")
+    print(f"  Output Tokens: {results['output_tokens']}")
+    print(f"  Total Tokens: {results['total_tokens']}")
+    print("  Generated Text:")
+    print(f"    {results['generated_text']}")
+    print("  Full Response Object:")
+    print_nested_dict(results['response'])
+    print(f"  Generated Text Characters: {len(results['generated_text'])}")
+
+def print_nested_dict(obj, indent=4):
+    """Print a nested dictionary with proper indentation."""
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            print(" " * indent + str(key) + ":")
+            print_nested_dict(value, indent + 4)
+    elif isinstance(obj, list):
+        for item in obj:
+            print_nested_dict(item, indent + 4)
+    else:
+        print(" " * indent + str(obj))
 
 if __name__ == "__main__":
     main()
