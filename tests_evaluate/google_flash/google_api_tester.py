@@ -2,7 +2,10 @@ import time
 import tiktoken
 import argparse
 import os
+import json
+import pandas as pd
 import google.generativeai as genai
+from tqdm import tqdm
 
 # Constants
 API_KEY = "AIzaSyD0HiVoAPUNzh3MWNHtuBZby4SWTqxnSvU"
@@ -60,41 +63,63 @@ def execute_query(client, model_name, text, stream_output=False):
         "response": response
     }
 
+def load_testset(file_path):
+    """Load testset from Parquet or JSON file."""
+    if file_path.endswith('.parquet'):
+        return pd.read_parquet(file_path)
+    elif file_path.endswith('.json'):
+        return pd.read_json(file_path)
+    else:
+        raise ValueError("Unsupported file format. Please use .parquet or .json")
+
+def process_row(client, model_name, row, print_prompt=False):
+    """Process a single row of the testset."""
+    from tests_evaluate.common.inference_prompt import template
+    text = template.format(original_code=row.original_code, update_snippet=row.update_snippet)
+    if print_prompt:
+        print("Full prompt:")
+        print(text)
+        print("\nSending query...\n")
+    result = execute_query(client, model_name, text)
+    result['model'] = model_name
+    result['input'] = text
+    result['original_code'] = row.original_code
+    result['update_snippet'] = row.update_snippet
+    result['final_code'] = row.final_code
+    result['full_output'] = text + result['generated_text']
+    return result
+
+def process_testset(file_path, model_name, print_prompt=False):
+    """Process the testset and generate output."""
+    client = init_google_client(API_KEY)
+    df = load_testset(file_path)
+    results = []
+    for row in tqdm(df.itertuples(index=False), total=len(df), desc="Processing testset"):
+        try:
+            result = process_row(client, model_name, row, print_prompt)
+            # Convert non-serializable objects to strings
+            result['response'] = str(result['response'])
+            results.append(result)
+        except Exception as e:
+            print(f"Error processing row: {e}")
+            results.append({
+                "error": str(e),
+                "model": model_name,
+                "original_code": row.original_code,
+                "update_snippet": row.update_snippet,
+                "final_code": row.final_code
+            })
+    return results
+
+def save_results(results, output_file):
+    """Save results to a JSON file."""
+    with open(output_file, 'w') as f:
+        json.dump(results, f, indent=2)
+
 def read_file(file_path):
     """Read and return the contents of a file."""
     with open(file_path, 'r') as file:
         return file.read()
-
-def main():
-    """Execute queries and print their results."""
-    parser = argparse.ArgumentParser(description="Run Google API test with a specified model.")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="The model identifier to use for the test.")
-    parser.add_argument("--prompt-template", default="tests_evaluate/inference_prompt.py", help="File path for the prompt template.")
-    parser.add_argument("--single-test-prompt", default="tests_evaluate/example/single_test_prompt.py", help="File path for the single test prompt.")
-    parser.add_argument("-n", "--additional-tests", type=int, default=DEFAULT_NUM_TESTS, help="Number of additional tests to run (default: 1)")
-    args = parser.parse_args()
-    
-    try:
-        client = init_google_client(API_KEY)
-        model_name = args.model
-        
-        from tests_evaluate.common.inference_prompt import template
-        from tests_evaluate.common.single_test_prompt import original_code, update_snippet
-        
-        # Construct the final prompt
-        text = template.format(original_code=original_code, update_snippet=update_snippet)
-        
-        print(f"Running test with model: {model_name}")
-        print("Test Query (Streaming):")
-        results = execute_query(client, model_name, text, stream_output=True)
-        print_results(results)
-        
-        for i in range(1, args.additional_tests + 1):
-            print(f"\nQuery {i}:")
-            results = execute_query(client, model_name, text)
-            print_results(results)
-    except Exception as e:
-        print(f"An error occurred: {e}")
 
 def print_results(results):
     """Print all related information of the response."""
@@ -121,6 +146,74 @@ def print_nested_dict(obj, indent=4):
             print_nested_dict(item, indent + 4)
     else:
         print(" " * indent + str(obj))
+
+def main():
+    """Execute queries and save results."""
+    parser = argparse.ArgumentParser(description="Run Google API test with a specified model on a testset.")
+    parser.add_argument("input_file", nargs='?', help="Path to the input Parquet or JSON file")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="The model identifier to use for the test.")
+    parser.add_argument("--print-prompt", action="store_true", help="Print the full prompt before sending the query")
+    parser.add_argument("-n", "--additional-tests", type=int, default=DEFAULT_NUM_TESTS, help="Number of additional tests to run (default: 1)")
+    parser.add_argument("--prompt-template", default="tests_evaluate/common/inference_prompt.py", help="File path for the prompt template.")
+    parser.add_argument("--single-test-prompt", default="tests_evaluate/common/single_test_prompt.py", help="File path for the single test prompt.")
+    args = parser.parse_args()
+    
+    model_name = DEFAULT_MODEL if args.model == "google_flash" else args.model
+    print(f"Running tests with model: {model_name}")
+    
+    if args.input_file:
+        # Process testset
+        results = []
+        try:
+            results = process_testset(args.input_file, model_name, args.print_prompt)
+            
+            # Run additional tests if specified
+            for i in range(1, args.additional_tests + 1):
+                print(f"\nRunning additional test {i}:")
+                additional_results = process_testset(args.input_file, model_name, args.print_prompt)
+                results.extend(additional_results)
+        except Exception as e:
+            print(f"An error occurred during processing: {e}")
+        finally:
+            if results:
+                output_file = f"data/testset_results_{args.model.replace('/', '_')}.json"
+                save_results(results, output_file)
+                print(f"Results saved to {output_file}")
+            else:
+                print("No results were generated.")
+    else:
+        # Run single test
+        try:
+            client = init_google_client(API_KEY)
+            
+            template = read_file(args.prompt_template)
+            single_test_prompt = read_file(args.single_test_prompt)
+            
+            # Create a new namespace for executing the single test prompt
+            namespace = {}
+            exec(single_test_prompt, namespace)
+            
+            # Extract original_code and update_snippet from the namespace
+            original_code = namespace.get('original_code', '')
+            update_snippet = namespace.get('update_snippet', '')
+            
+            text = template.format(original_code=original_code, update_snippet=update_snippet)
+
+            if args.print_prompt:
+                print("Full prompt:")
+                print(text)
+                print("\nSending query...\n")
+            
+            print("Test Query (Streaming):")
+            results = execute_query(client, model_name, text, stream_output=True)
+            print_results(results)
+            
+            for i in range(1, args.additional_tests + 1):
+                print(f"\nQuery {i}:")
+                results = execute_query(client, model_name, text)
+                print_results(results)
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
     main()
