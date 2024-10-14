@@ -8,9 +8,10 @@ import google.generativeai as genai
 from tqdm import tqdm
 
 # Constants
-API_KEY = "AIzaSyD0HiVoAPUNzh3MWNHtuBZby4SWTqxnSvU"
+API_KEY = "AIzaSyDWRqdg15wX03c8V358ipORcaQJqvgqlLo"
 MAX_TOKENS = 8192
-DEFAULT_MODEL = "tunedModels/train-4gaullhp8hak"
+#  DEFAULT_MODEL = "tunedModels/train-4gaullhp8hak"
+DEFAULT_MODEL = "tunedModels/train10924-z3qbczy23ohs"
 DEFAULT_NUM_TESTS = 1
 
 def init_google_client(api_key):
