@@ -13,6 +13,10 @@ import openai
 load_dotenv()
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
+# Set OpenAI API key and base URL for 8K tokens support
+openai.api_key = DEEPSEEK_API_KEY
+openai.api_base = "https://api.deepseek.com/beta"
+
 # Database file
 DB_FILE = 'fix_query_cache.db'
 
