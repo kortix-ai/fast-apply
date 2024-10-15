@@ -74,7 +74,7 @@ export default ({{ mode }}) => {{
     ],
     // ... existing code ...
   }});
-</update_snippet>
+}}</update_snippet>
 
 <final_code>
 import {{ defineConfig }} from 'vite';
@@ -179,7 +179,7 @@ def display_parquet_info(df):
     print("\nFirst few rows:")
     print(df[['File Name']].head())
 
-async def generate_update(db, original_code):
+async def generate_update(db, original_code, existing_update_snippet, existing_final_code):
     """Generate update snippet and final code using OpenAI API or cache."""
     # Check if the result is already in the cache
     cached_result = await get_from_cache(db, original_code)
@@ -187,16 +187,23 @@ async def generate_update(db, original_code):
         print("Using cached result")
         return cached_result
 
-    prompt = PROMPT_TEMPLATE + f'\n\n<original_code>\n{original_code}\n</original_code>'
+    messages = [
+        {"role": "system", "content": PROMPT_TEMPLATE},
+    ]
+
+    snippets_content = f"<original_code>\n{original_code}\n</original_code>"
+    if existing_update_snippet or existing_final_code:
+        if existing_update_snippet:
+            snippets_content += f"<update_snippet>\n{existing_update_snippet}\n</update_snippet>\n\n"
+        if existing_final_code:
+            snippets_content += f"<final_code>\n{existing_final_code}\n</final_code>"
+    messages.append({"role": "user", "content": snippets_content.strip()})
 
     try:
         async with rate_limiter:
             response = await openai.ChatCompletion.acreate(
                 model="deepseek-chat",
-                messages=[
-                    {"role": "system", "content": PROMPT_TEMPLATE},
-                    {"role": "user", "content": f"<original_code>\n{original_code}\n</original_code>"}
-                ],
+                messages=messages,
                 temperature=0,
                 max_tokens=8192
             )
@@ -210,29 +217,42 @@ async def generate_update(db, original_code):
 
 async def process_row(db, idx, row):
     """Process a single row of the DataFrame."""
-    if pd.isna(row['update_snippet']) or pd.isna(row['final_code']):
-        print(f"Processing file: {row.get('File Name', idx)}")
-        generated_content = await generate_update(db, row['original_code'])
-        if generated_content == "DELETE_ROW":
-            print(f"Deleting row for file: {row.get('File Name', idx)}")
-            return idx, None
-        if "The provided code is correct and requires no changes." in generated_content:
-            # Code is correct, no changes needed
-            return idx, {'update_snippet': pd.NA, 'final_code': pd.NA, 'error': pd.NA, 'status': 'correct'}
-        if '<update_snippet>' in generated_content and '<final_code>' in generated_content:
-            try:
-                update_snippet = generated_content.split('<update_snippet>')[1].split('</update_snippet>')[0].strip()
-                final_code = generated_content.split('<final_code>')[1].split('</final_code>')[0].strip()
-                return idx, {'update_snippet': update_snippet, 'final_code': final_code, 'error': pd.NA, 'status': 'fixed'}
-            except IndexError:
-                print(f"Error processing file: {row.get('File Name', idx)}. Output doesn't match expected pattern.")
-                return idx, {'update_snippet': pd.NA, 'final_code': pd.NA, 'error': generated_content, 'status': 'error'}
-        else:
-            print(f"Response missing expected tags for file: {row.get('File Name', idx)}")
-            return idx, {'update_snippet': pd.NA, 'final_code': pd.NA, 'error': generated_content, 'status': 'missing_tags'}
+    print(f"Processing file: {row.get('File Name', idx)}")
+    generated_content = await generate_update(
+        db,
+        row['original_code'],
+        row['update_snippet'] if not pd.isna(row['update_snippet']) else "",
+        row['final_code'] if not pd.isna(row['final_code']) else ""
+    )
+    if generated_content == "DELETE_ROW":
+        print(f"Deleting row for file: {row.get('File Name', idx)}")
+        return idx, None
+    if "The provided code is correct and requires no changes." in generated_content:
+        # Code is correct, no changes needed
+        return idx, {'update_snippet': row['update_snippet'] if not pd.isna(row['update_snippet']) else pd.NA,
+                    'final_code': row['final_code'] if not pd.isna(row['final_code']) else pd.NA,
+                    'error': pd.NA,
+                    'status': 'correct'}
+    if '<update_snippet>' in generated_content and '<final_code>' in generated_content:
+        try:
+            update_snippet = generated_content.split('<update_snippet>')[1].split('</update_snippet>')[0].strip()
+            final_code = generated_content.split('<final_code>')[1].split('</final_code>')[0].strip()
+            return idx, {'update_snippet': update_snippet if update_snippet else row['update_snippet'],
+                        'final_code': final_code if final_code else row['final_code'],
+                        'error': pd.NA,
+                        'status': 'fixed'}
+        except IndexError:
+            print(f"Error processing file: {row.get('File Name', idx)}. Output doesn't match expected pattern.")
+            return idx, {'update_snippet': row['update_snippet'],
+                        'final_code': row['final_code'],
+                        'error': generated_content,
+                        'status': 'error'}
     else:
-        print(f"File already processed, skipping: {row.get('File Name', idx)}")
-        return idx, {'update_snippet': row['update_snippet'], 'final_code': row['final_code'], 'error': row['error'], 'status': row.get('status', 'processed')}
+        print(f"Response missing expected tags for file: {row.get('File Name', idx)}")
+        return idx, {'update_snippet': row['update_snippet'],
+                    'final_code': row['final_code'],
+                    'error': generated_content,
+                    'status': 'missing_tags'}
 
 def save_parquet(df, parquet_file):
     df.to_parquet(parquet_file, index=False)
