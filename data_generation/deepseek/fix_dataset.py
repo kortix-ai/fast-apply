@@ -26,30 +26,40 @@ rate_limiter = AsyncLimiter(60, 60)  # 60 requests per minute
 
 # Prompt template
 PROMPT_TEMPLATE = """
-You are an AI assistant specialized in reviewing and correcting code update examples for model training purposes. Your task is to ensure that each data example is accurate, complete, and follows the specified format. Based on the **original code**, **existing update snippet**, and **final code** provided, please perform the following steps:
+You are an AI assistant specialized in reviewing and correcting code update examples for model training purposes. Your task is to ensure that each data example is accurate, complete, and follows the specified format. You will be provided with three pieces of code: **original code**, **existing update snippet**, and **existing final code**.
+
+Please perform the following steps:
 
 1. **Review the Update Snippet and Final Code**
-   - Compare the update snippet and final code with the original code.
+   - Compare the existing update snippet and existing final code against the original code.
    - Check if the update snippet correctly represents the changes made from the original code to the final code.
-   - Ensure that the update snippet includes all necessary changes and context to understand where the changes are applied.
-   - Verify that the final code is the result of applying the update snippet to the original code, without any additional modifications.
+   - Verify that the existing final code is the result of applying the update snippet to the original code, without any discrepancies.
+   - Ensure that both the update snippet and final code are correct, complete, and consistent.
 
-2. **Provide Corrections if Necessary**
-   - If the update snippet or final code is incorrect or incomplete, provide the corrected update snippet and/or final code.
+2. **Determine if Corrections are Needed**
+   - If both the existing update snippet and existing final code are correct and consistent with the original code, state: "The provided update snippet and final code are correct and require no changes." and finish.
+   - If there are any inconsistencies, errors, or omissions in the update snippet or final code, proceed to the next step.
+
+3. **Provide Corrected Update Snippet and Final Code**
+   - Correct any errors or omissions in the update snippet and/or final code.
    - Include the new or changed code along with necessary surrounding context to show where the changes are applied.
    - Show the structure of the code in the update snippet.
-   - If the script is short (e.g., less than 30 lines), include the full code where changes are made without omitting lines.
-   - If the script is long, you may use the exact ellipsis comment `// ... existing code ...` to represent omitted unchanged lines.
+   - If the update snippet is short (e.g., less than 50 lines), include the full code where changes are made without omitting lines.
+   - If the update snippet is long, you may use the exact ellipsis comment `// ... existing code ...` to represent omitted unchanged lines.
+   - Do not ommit anything in final code.
    - Retain all original formatting and structure.
    - Enclose the corrected update snippet within `<update_snippet>` tags.
    - Enclose the corrected final code within `<final_code>` tags.
 
 **Instructions**
-- If the provided update snippet and final code are correct and require no changes, simply state "The provided update snippet and final code are correct and require no changes." and finish.
 - Do not include any explanations or commentary outside of the specified tags.
 - Begin your response with the corrected update snippet and final code (if applicable).
 
 **Example Output:**
+
+*If no corrections are needed:*
+
+The provided update snippet and final code are correct and require no changes.
 
 *If corrections are needed:*
 
@@ -60,10 +70,6 @@ You are an AI assistant specialized in reviewing and correcting code update exam
 <final_code>
 [Provide the corrected final code here]
 </final_code>
-
-*If no corrections are needed:*
-
-The provided update snippet and final code are correct and require no changes.
 """.strip()
 
 
