@@ -7,15 +7,17 @@ from dotenv import load_dotenv
 from tqdm.asyncio import tqdm
 from aiolimiter import AsyncLimiter
 import argparse
-import openai
+# from openai import OpenAI
+from openai import AsyncOpenAI
 
 # Load environment variables
 load_dotenv()
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
 # Set OpenAI API key and base URL for 8K tokens support
-openai.api_key = DEEPSEEK_API_KEY
-openai.api_base = "https://api.deepseek.com/beta"
+client = AsyncOpenAI(
+    api_key=os.environ.get("DEEPSEEK_API_KEY"),
+    base_url="https://api.deepseek.com/beta",
+)
 
 # Database file
 DB_FILE = 'fix_query_cache.db'
@@ -201,13 +203,14 @@ async def generate_update(db, original_code, existing_update_snippet, existing_f
 
     try:
         async with rate_limiter:
-            response = await openai.ChatCompletion.acreate(
+            response = await client.chat.completions.create(
                 model="deepseek-chat",
                 messages=messages,
+                stream=False,
                 temperature=0,
                 max_tokens=8192
             )
-            content = response['choices'][0]['message']['content']
+            content = response.choices[0].message.content
             # Cache the result
             await add_to_cache(db, original_code, content)
             return content
@@ -255,12 +258,14 @@ async def process_row(db, idx, row):
                     'status': 'missing_tags'}
 
 def save_parquet(df, parquet_file):
-    df.to_parquet(parquet_file, index=False)
-    print(f"Updated Parquet file saved to {parquet_file}")
+    output_file = f"fixed_{parquet_file.split('/')[-1]}"
+    df.to_parquet(output_file, index=False)
+    print(f"Updated Parquet file saved to {output_file}")
 
 def save_json(df, json_file):
-    df.to_json(json_file, orient='records', indent=2)
-    print(f"JSON file saved to {json_file}")
+    output_file = f"fixed_{json_file.split('/')[-1]}"
+    df.to_json(output_file, orient='records', indent=2)
+    print(f"JSON file saved to {output_file}")
 
 async def main(parquet_file, test_mode=False, should_clear_cache=False):
     df = load_parquet(parquet_file)
@@ -297,9 +302,8 @@ async def main(parquet_file, test_mode=False, should_clear_cache=False):
             print(f"Removing {len(rows_to_delete)} rows due to errors")
             df = df.drop(rows_to_delete)
 
-        if not test_mode:
-            # Save final progress
-            save_parquet(df, parquet_file)
+        # Save final progress
+        save_parquet(df, parquet_file)
 
         # Save as JSON
         json_file = parquet_file.rsplit('.', 1)[0] + '.json'
@@ -310,6 +314,8 @@ async def main(parquet_file, test_mode=False, should_clear_cache=False):
     if test_mode:
         print("Test mode: JSON output:")
         print(df.to_json(orient='records', indent=2))
+    else:
+        print("Full processing completed. Check the 'fixed_' output files.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process a Parquet file and check/fix code examples.")
