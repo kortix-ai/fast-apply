@@ -3,12 +3,11 @@ import aiosqlite
 import pyarrow.parquet as pq
 import pandas as pd
 import asyncio
-import json
-import aiohttp
 from dotenv import load_dotenv
 from tqdm.asyncio import tqdm
 from aiolimiter import AsyncLimiter
 import argparse
+import openai
 
 # Load environment variables
 load_dotenv()
@@ -17,8 +16,7 @@ DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 # Database file
 DB_FILE = 'fix_query_cache.db'
 
-# Rate limiter: 50 requests per minute
-rate_limiter = AsyncLimiter(50, 60)
+rate_limiter = AsyncLimiter(60, 60)  # 60 requests per minute
 
 # Prompt template
 PROMPT_TEMPLATE = """
@@ -128,7 +126,6 @@ export default ({{ mode }}) => {{
 *If no corrections are needed:*
 
 The provided code is correct and requires no changes.
-
 """.strip()
 
 async def init_db(db):
@@ -179,7 +176,7 @@ def display_parquet_info(df):
     print(df[['File Name']].head())
 
 async def generate_update(db, original_code):
-    """Generate update snippet and final code using DeepSeek API or cache."""
+    """Generate update snippet and final code using OpenAI API or cache."""
     # Check if the result is already in the cache
     cached_result = await get_from_cache(db, original_code)
     if cached_result:
@@ -187,34 +184,22 @@ async def generate_update(db, original_code):
         return cached_result
 
     prompt = PROMPT_TEMPLATE + f'\n\n<original_code>\n{original_code}\n</original_code>'
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
-    }
-    data = {
-        "model": "deepseek-chat",
-        "messages": [
-            {"role": "system", "content": PROMPT_TEMPLATE},
-            {"role": "user", "content": f"<original_code>\n{original_code}\n</original_code>"}
-        ],
-        "temperature": 0,
-        "max_tokens": 8192
-    }
 
     try:
         async with rate_limiter:
-            async with aiohttp.ClientSession() as session:
-                async with session.post("https://api.deepseek.com/v1/chat/completions", json=data, headers=headers) as resp:
-                    if resp.status == 200:
-                        response = await resp.json()
-                        content = response['choices'][0]['message']['content']
-                        # Cache the result
-                        await add_to_cache(db, original_code, content)
-                        return content
-                    else:
-                        error_text = f"Error {resp.status}: {await resp.text()}"
-                        print(error_text)
-                        return "DELETE_ROW"
+            response = await openai.ChatCompletion.acreate(
+                model="deepseek-chat",
+                messages=[
+                    {"role": "system", "content": PROMPT_TEMPLATE},
+                    {"role": "user", "content": f"<original_code>\n{original_code}\n</original_code>"}
+                ],
+                temperature=0,
+                max_tokens=8192
+            )
+            content = response['choices'][0]['message']['content']
+            # Cache the result
+            await add_to_cache(db, original_code, content)
+            return content
     except Exception as e:
         print(f"Exception during API call: {e}")
         return "DELETE_ROW"
@@ -222,23 +207,27 @@ async def generate_update(db, original_code):
 async def process_row(db, idx, row):
     """Process a single row of the DataFrame."""
     if pd.isna(row['update_snippet']) or pd.isna(row['final_code']):
-        print(f"Processing file: {row['File Name']}")
+        print(f"Processing file: {row.get('File Name', idx)}")
         generated_content = await generate_update(db, row['original_code'])
         if generated_content == "DELETE_ROW":
-            print(f"Deleting row for file: {row['File Name']}")
+            print(f"Deleting row for file: {row.get('File Name', idx)}")
             return idx, None
         if "The provided code is correct and requires no changes." in generated_content:
             # Code is correct, no changes needed
             return idx, {'update_snippet': pd.NA, 'final_code': pd.NA, 'error': pd.NA, 'status': 'correct'}
-        try:
-            update_snippet = generated_content.split('<update_snippet>')[1].split('</update_snippet>')[0].strip()
-            final_code = generated_content.split('<final_code>')[1].split('</final_code>')[0].strip()
-            return idx, {'update_snippet': update_snippet, 'final_code': final_code, 'error': pd.NA, 'status': 'fixed'}
-        except IndexError:
-            print(f"Error processing file: {row['File Name']}. Output doesn't match expected pattern.")
-            return idx, {'update_snippet': pd.NA, 'final_code': pd.NA, 'error': generated_content, 'status': 'error'}
+        if '<update_snippet>' in generated_content and '<final_code>' in generated_content:
+            try:
+                update_snippet = generated_content.split('<update_snippet>')[1].split('</update_snippet>')[0].strip()
+                final_code = generated_content.split('<final_code>')[1].split('</final_code>')[0].strip()
+                return idx, {'update_snippet': update_snippet, 'final_code': final_code, 'error': pd.NA, 'status': 'fixed'}
+            except IndexError:
+                print(f"Error processing file: {row.get('File Name', idx)}. Output doesn't match expected pattern.")
+                return idx, {'update_snippet': pd.NA, 'final_code': pd.NA, 'error': generated_content, 'status': 'error'}
+        else:
+            print(f"Response missing expected tags for file: {row.get('File Name', idx)}")
+            return idx, {'update_snippet': pd.NA, 'final_code': pd.NA, 'error': generated_content, 'status': 'missing_tags'}
     else:
-        print(f"File already processed, skipping: {row['File Name']}")
+        print(f"File already processed, skipping: {row.get('File Name', idx)}")
         return idx, {'update_snippet': row['update_snippet'], 'final_code': row['final_code'], 'error': row['error'], 'status': row.get('status', 'processed')}
 
 def save_parquet(df, parquet_file):
