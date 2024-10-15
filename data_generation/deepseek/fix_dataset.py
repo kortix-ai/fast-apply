@@ -32,36 +32,50 @@ client = AsyncOpenAI(
 # Database file
 DB_FILE = 'fix_query_cache.db'
 
-rate_limiter = AsyncLimiter(60, 60)  # 60 requests per minute
+# It limits the rate of asynchronous operations to 120 requests per 60 seconds
+rate_limiter = AsyncLimiter(120, 60) 
 
 # Prompt template
 PROMPT_TEMPLATE = """
-You are an AI assistant specialized in reviewing and correcting code update examples for model training purposes. Your task is to ensure that each data example is accurate, complete, and follows the specified format. You will be provided with three pieces of code: **original code**, **existing update snippet**, and **existing final code**.
+You are an AI assistant specialized in reviewing and correcting code update examples for model training purposes. Your task is to ensure that each data example is accurate, complete, and follows the specified format. You will be provided with three pieces of code:
+
+- **Original code**
+- **Existing update snippet**
+- **Existing final code**
 
 Please perform the following steps:
 
 1. **Review the Update Snippet and Final Code**
+
    - Compare the existing update snippet and existing final code against the original code.
    - Check if the update snippet correctly represents the changes made from the original code to the final code.
    - Verify that the existing final code is the result of applying the update snippet to the original code, without any discrepancies.
    - Ensure that both the update snippet and final code are correct, complete, and consistent.
+   - **Ensure that the changes in the update snippet are presented in the correct order as they should be applied to the original code.**
 
 2. **Determine if Corrections are Needed**
-   - If both the existing update snippet and existing final code are correct and consistent with the original code, state: "The provided update snippet and final code are correct and require no changes." and finish.
-   - If there are any inconsistencies, errors, or omissions in the update snippet or final code, proceed to the next step.
+
+   - If both the existing update snippet and existing final code are correct, consistent with the original code, and the update snippet changes are in the correct order, respond with exactly: "The provided update snippet and final code are correct and require no changes." and finish.
+   - If there are any inconsistencies, errors, omissions, or incorrect ordering in the update snippet or final code, proceed to the next step.
 
 3. **Provide Corrected Update Snippet and Final Code**
-   - Correct any errors or omissions in the update snippet and/or final code.
+
+   - Correct any errors, omissions, or ordering issues in the update snippet and/or final code.
    - Include the new or changed code along with necessary surrounding context to show where the changes are applied.
-   - Show the structure of the code in the update snippet.
-   - If the update snippet is short (e.g., less than 50 lines), include the full code where changes are made without omitting lines.
-   - If the update snippet is long, you may use the exact ellipsis comment `// ... existing code ...` to represent omitted unchanged lines.
-   - Do not omit anything in final code.
-   - Retain all original formatting and structure.
+   - In the **update snippet**:
+     - **Retain any existing omissions (`// ... existing code ...` or similar) in the update snippet. Do not un-omit code that was previously omitted unless it is essential to correct an error.**
+     - If the code where changes are made is short (e.g., less than 50 lines), include the full code where changes are made without omitting lines.
+     - If the code where changes are made is long, you may use the exact ellipsis comment `// ... existing code ...` to represent omitted unchanged lines.
+     - Retain the structure and context necessary to understand where the changes are applied.
+     - **Ensure that the changes are presented in the correct order as they should be applied to the original code.**
+   - In the **final code**:
+     - Do not omit any code. Include the full corrected final code, ensuring it matches the original code with the changes applied in the correct order.
+   - Retain all original formatting, indentation, and code structure.
    - Enclose the corrected update snippet within `<update_snippet>` tags.
    - Enclose the corrected final code within `<final_code>` tags.
 
 **Instructions**
+
 - Do not include any explanations or commentary outside of the specified tags.
 - Begin your response with the corrected update snippet and final code (if applicable).
 
@@ -72,6 +86,9 @@ Please perform the following steps:
 The provided update snippet and final code are correct and require no changes.
 
 *If corrections are needed:*
+<describe-changes>
+[Provide short describe of the changes]
+</describe-changes>
 
 <update_snippet>
 [Provide the corrected update snippet here]
@@ -151,9 +168,9 @@ async def generate_update(db, original_code, existing_update_snippet, existing_f
     snippets_content = f"<original_code>\n{original_code}\n</original_code>"
     if existing_update_snippet or existing_final_code:
         if existing_update_snippet:
-            snippets_content += f"<update_snippet>\n{existing_update_snippet}\n</update_snippet>\n\n"
+            snippets_content += f"<existing_update_snippet>\n{existing_update_snippet}\n</existing_update_snippet>\n\n"
         if existing_final_code:
-            snippets_content += f"<final_code>\n{existing_final_code}\n</final_code>"
+            snippets_content += f"<existing_final_code>\n{existing_final_code}\n</existing_final_code>"
     messages.append({"role": "user", "content": snippets_content.strip()})
 
     max_retries = 2
@@ -171,7 +188,7 @@ async def generate_update(db, original_code, existing_update_snippet, existing_f
                         temperature=0,
                         max_tokens=8192
                     ),
-                    timeout=180  # 3 minutes timeout
+                    timeout=300 
                 )
                 content = response.choices[0].message.content
                 # Cache the result
