@@ -11,3 +11,5 @@ Only output the updated code; do not include any additional text, explanations, 
 The updated code MUST be enclosed in <updated-code> tags.
 Here's the updated-code with fully integrated changes, start the tag now:
 """
+
+simple_template = """<update>{update_snippet}</update>\n<code>{original_code}</code>"""

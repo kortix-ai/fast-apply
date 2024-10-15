@@ -71,13 +71,14 @@ Please perform the following steps:
    - In the **final code**:
      - Do not omit any code. Include the full corrected final code, ensuring it matches the original code with the changes applied in the correct order.
    - Retain all original formatting, indentation, and code structure.
+   - **Provide a short description of the changes made** within `<describe_changes>` tags.
    - Enclose the corrected update snippet within `<update_snippet>` tags.
    - Enclose the corrected final code within `<final_code>` tags.
 
 **Instructions**
 
 - Do not include any explanations or commentary outside of the specified tags.
-- Begin your response with the corrected update snippet and final code (if applicable).
+- Begin your response with the `<describe_changes>` section, followed by the corrected update snippet and final code (if applicable).
 
 **Example Output:**
 
@@ -86,9 +87,10 @@ Please perform the following steps:
 The provided update snippet and final code are correct and require no changes.
 
 *If corrections are needed:*
-<describe-changes>
-[Provide short describe of the changes]
-</describe-changes>
+
+<describe_changes>
+[Provide a short description of the changes here]
+</describe_changes>
 
 <update_snippet>
 [Provide the corrected update snippet here]
@@ -188,14 +190,14 @@ async def generate_update(db, original_code, existing_update_snippet, existing_f
                         temperature=0,
                         max_tokens=8192
                     ),
-                    timeout=300 
+                    timeout=1000 
                 )
                 content = response.choices[0].message.content
                 # Cache the result
                 await add_to_cache(db, original_code, content)
                 return content
         except asyncio.TimeoutError:
-            logging.error(f"Timeout after 3 minutes for original_code: {original_code[:30]}...")
+            logging.error(f"Timeout after 15 minutes for original_code: {original_code[:30]}...")
             return "DELETE_ROW"
         except ClientResponseError as cre:
             status = cre.status
@@ -228,7 +230,7 @@ async def generate_update(db, original_code, existing_update_snippet, existing_f
 
         attempt += 1
         if attempt <= max_retries:
-            wait_time = backoff_factor ** attempt
+            wait_time = backoff_factor ** attempt + 10
             logging.info(f"Retrying in {wait_time} seconds... (Attempt {attempt} of {max_retries})")
             await asyncio.sleep(wait_time)
     logging.error(f"All retries failed for original_code: {original_code[:30]}...")
@@ -248,14 +250,22 @@ async def process_row(db, idx, row):
     if generated_content == "DELETE_ROW":
         logging.info(f"Deleting row for file: {file_name}")
         return idx, None
+    
+    # Parse describe-changes
+    describe_changes = pd.NA
+    if '<describe_changes>' in generated_content and '</describe_changes>' in generated_content:
+        describe_changes = generated_content.split('<describe_changes>')[1].split('</describe_changes>')[0].strip()
+    
     if "The provided update snippet and final code are correct and require no changes." in generated_content:
         # Code is correct, no changes needed
         return idx, {
             'update_snippet': row['update_snippet'] if not pd.isna(row['update_snippet']) else pd.NA,
             'final_code': row['final_code'] if not pd.isna(row['final_code']) else pd.NA,
             'error': pd.NA,
-            'status': 'correct'
+            'status': 'correct',
+            'describe_changes': describe_changes
         }
+    
     if '<update_snippet>' in generated_content and '<final_code>' in generated_content:
         try:
             update_snippet = generated_content.split('<update_snippet>')[1].split('</update_snippet>')[0].strip()
@@ -266,7 +276,8 @@ async def process_row(db, idx, row):
                 'old_update_snippet': row['update_snippet'] if not pd.isna(row['update_snippet']) else pd.NA,
                 'old_final_code': row['final_code'] if not pd.isna(row['final_code']) else pd.NA,
                 'error': pd.NA,
-                'status': 'fixed'
+                'status': 'fixed',
+                'describe_changes': describe_changes
             }
         except IndexError:
             logging.error(f"Error processing file: {file_name}. Output doesn't match expected pattern.")
@@ -274,7 +285,8 @@ async def process_row(db, idx, row):
                 'update_snippet': row['update_snippet'],
                 'final_code': row['final_code'],
                 'error': generated_content,
-                'status': 'error'
+                'status': 'error',
+                'describe_changes': describe_changes
             }
     else:
         logging.error(f"Response missing expected tags for file: {file_name}")
@@ -282,7 +294,8 @@ async def process_row(db, idx, row):
             'update_snippet': row['update_snippet'],
             'final_code': row['final_code'],
             'error': generated_content,
-            'status': 'missing_tags'
+            'status': 'missing_tags',
+            'describe_changes': describe_changes
         }
 
 
@@ -331,6 +344,7 @@ async def main(parquet_file, test_mode=False, should_clear_cache=False, test_sam
                 df.at[idx, 'old_final_code'] = result.get('old_final_code', pd.NA)
                 df.at[idx, 'error'] = result['error']
                 df.at[idx, 'status'] = result['status']
+                df.at[idx, 'describe_changes'] = result['describe_changes']
 
         # Remove rows that encountered errors
         if rows_to_delete:
@@ -348,8 +362,6 @@ async def main(parquet_file, test_mode=False, should_clear_cache=False, test_sam
 
     if test_mode:
         pass
-        # logging.info("Test mode: JSON output:")
-        # logging.info(df.to_json(orient='records', indent=2))
     else:
         logging.info("Full processing completed. Check the 'fixed_' output files.")
 

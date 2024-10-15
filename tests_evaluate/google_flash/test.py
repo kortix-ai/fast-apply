@@ -9,9 +9,7 @@ from tqdm import tqdm
 
 # Constants
 API_KEY = "AIzaSyDWRqdg15wX03c8V358ipORcaQJqvgqlLo"
-MAX_TOKENS = 8192
-#  DEFAULT_MODEL = "tunedModels/train-4gaullhp8hak"
-DEFAULT_MODEL = "tunedModels/train10924-z3qbczy23ohs"
+# MAX_TOKENS = 
 DEFAULT_NUM_TESTS = 1
 
 def init_google_client(api_key):
@@ -30,7 +28,7 @@ def execute_query(client, model_name, text, stream_output=False):
     start_time = time.time()
     
     generation_config = {
-        "max_output_tokens": MAX_TOKENS,
+        "max_output_tokens": 8192,
         "temperature": 0,
         "response_mime_type": "text/plain",
     }
@@ -73,10 +71,11 @@ def load_testset(file_path):
     else:
         raise ValueError("Unsupported file format. Please use .parquet or .json")
 
-def process_row(client, model_name, row, print_prompt=False):
+def process_row(client, model_name, row, print_prompt=False, use_simple_template=False):
     """Process a single row of the testset."""
-    from tests_evaluate.common.inference_prompt import template
-    text = template.format(original_code=row.original_code, update_snippet=row.update_snippet)
+    from tests_evaluate.common.inference_prompt import template, simple_template
+    text = simple_template if use_simple_template else template
+    text = text.format(original_code=row.original_code, update_snippet=row.update_snippet)
     if print_prompt:
         print("Full prompt:")
         print(text)
@@ -90,7 +89,7 @@ def process_row(client, model_name, row, print_prompt=False):
     result['full_output'] = text + result['generated_text']
     return result
 
-def process_testset(file_path, model_name, print_prompt=False):
+def process_testset(file_path, model_name, print_prompt=False, use_simple_template=False):
     """Process the testset and generate output."""
     client = init_google_client(API_KEY)
     df = load_testset(file_path)
@@ -148,30 +147,33 @@ def print_nested_dict(obj, indent=4):
     else:
         print(" " * indent + str(obj))
 
+from tests_evaluate.common.inference_prompt import template, simple_template
+
 def main():
     """Execute queries and save results."""
     parser = argparse.ArgumentParser(description="Run Google API test with a specified model on a testset.")
     parser.add_argument("input_file", nargs='?', help="Path to the input Parquet or JSON file")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="The model identifier to use for the test.")
+    parser.add_argument("--model", required=True, help="The model identifier to use for the test.")
     parser.add_argument("--print-prompt", action="store_true", help="Print the full prompt before sending the query")
     parser.add_argument("-n", "--additional-tests", type=int, default=DEFAULT_NUM_TESTS, help="Number of additional tests to run (default: 1)")
     parser.add_argument("--prompt-template", default="tests_evaluate/common/inference_prompt.py", help="File path for the prompt template.")
     parser.add_argument("--single-test-prompt", default="tests_evaluate/common/single_test_prompt.py", help="File path for the single test prompt.")
+    parser.add_argument("--simple", action="store_true", help="Use simple template for prompt input")
     args = parser.parse_args()
     
-    model_name = DEFAULT_MODEL if args.model == "google_flash" else args.model
+    model_name = args.model
     print(f"Running tests with model: {model_name}")
     
     if args.input_file:
         # Process testset
         results = []
         try:
-            results = process_testset(args.input_file, model_name, args.print_prompt)
+            results = process_testset(args.input_file, model_name, args.print_prompt, args.simple)
             
             # Run additional tests if specified
             for i in range(1, args.additional_tests + 1):
                 print(f"\nRunning additional test {i}:")
-                additional_results = process_testset(args.input_file, model_name, args.print_prompt)
+                additional_results = process_testset(args.input_file, model_name, args.print_prompt, args.simple)
                 results.extend(additional_results)
         except Exception as e:
             print(f"An error occurred during processing: {e}")
@@ -198,7 +200,8 @@ def main():
             original_code = namespace.get('original_code', '')
             update_snippet = namespace.get('update_snippet', '')
             
-            text = template.format(original_code=original_code, update_snippet=update_snippet)
+            text = simple_template if args.simple else template
+            text = text.format(original_code=original_code, update_snippet=update_snippet)
 
             if args.print_prompt:
                 print("Full prompt:")
