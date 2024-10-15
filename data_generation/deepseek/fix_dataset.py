@@ -242,6 +242,8 @@ async def process_row(db, idx, row):
             final_code = generated_content.split('<final_code>')[1].split('</final_code>')[0].strip()
             return idx, {'update_snippet': update_snippet if update_snippet else row['update_snippet'],
                         'final_code': final_code if final_code else row['final_code'],
+                        'old_update_snippet': row['update_snippet'] if not pd.isna(row['update_snippet']) else pd.NA,
+                        'old_final_code': row['final_code'] if not pd.isna(row['final_code']) else pd.NA,
                         'error': pd.NA,
                         'status': 'fixed'}
         except IndexError:
@@ -258,12 +260,12 @@ async def process_row(db, idx, row):
                     'status': 'missing_tags'}
 
 def save_parquet(df, parquet_file):
-    output_file = f"fixed_{parquet_file.split('/')[-1]}"
+    output_file = os.path.join(os.path.dirname(parquet_file), f"fixed_{os.path.basename(parquet_file)}")
     df.to_parquet(output_file, index=False)
     print(f"Updated Parquet file saved to {output_file}")
 
 def save_json(df, json_file):
-    output_file = f"fixed_{json_file.split('/')[-1]}"
+    output_file = os.path.join(os.path.dirname(json_file), f"fixed_{os.path.basename(json_file)}")
     df.to_json(output_file, orient='records', indent=2)
     print(f"JSON file saved to {output_file}")
 
@@ -294,6 +296,8 @@ async def main(parquet_file, test_mode=False, should_clear_cache=False):
             else:
                 df.at[idx, 'update_snippet'] = result['update_snippet']
                 df.at[idx, 'final_code'] = result['final_code']
+                df.at[idx, 'old_update_snippet'] = result.get('old_update_snippet', pd.NA)
+                df.at[idx, 'old_final_code'] = result.get('old_final_code', pd.NA)
                 df.at[idx, 'error'] = result['error']
                 df.at[idx, 'status'] = result['status']
 
@@ -312,8 +316,9 @@ async def main(parquet_file, test_mode=False, should_clear_cache=False):
         print("Processing complete")
 
     if test_mode:
-        print("Test mode: JSON output:")
-        print(df.to_json(orient='records', indent=2))
+        pass
+        # print("Test mode: JSON output:")
+        # print(df.to_json(orient='records', indent=2))
     else:
         print("Full processing completed. Check the 'fixed_' output files.")
 
