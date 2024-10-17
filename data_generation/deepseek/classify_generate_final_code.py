@@ -37,68 +37,26 @@ rate_limiter = AsyncLimiter(120, 60)
 
 # Prompt template
 PROMPT_TEMPLATE = """
-You are an AI assistant specialized in reviewing and correcting code update examples for model training purposes. Your task is to ensure that each data example is accurate, complete, and follows the specified format. You will be provided with three pieces of code:
+As an AI coding assistant, you will be provided with:
 
-- **Original code**
-- **Existing update snippet**
-- **Existing final code**
+- **Original Code**
+- **Update Snippet**
+- **Existing Final Code**
 
-Please perform the following steps:
+Your task is to:
 
-1. **Review the Update Snippet and Final Code**
+1. **Verify Completeness**: Check if the **Existing Final Code** includes all changes specified in the **Update Snippet** applied to the **Original Code**.
 
-   - Compare the existing update snippet and existing final code against the original code.
-   - Check if the update snippet correctly represents the changes made from the original code to the final code.
-   - Verify that the existing final code is the result of applying the update snippet to the original code, without any discrepancies.
-   - Ensure that both the update snippet and final code are correct, complete, and consistent.
-   - **Ensure that the changes in the update snippet are presented in the correct order as they should be applied to the original code.**
+2. **Output**:
+   - **If the Final Code is complete** (all changes are correctly applied):
+     - Output only: `The provided final code is complete and requires no changes.`
+   - **If the Final Code is incomplete or incorrect** (trucated, not all changes are applied or applied incorrectly):
+     - Generate the corrected full final code with all changes applied.
+     - Enclose the corrected code within `<final_code>` and `</final_code>` tags, like so:
 
-2. **Determine if Corrections are Needed**
-
-   - If both the existing update snippet and existing final code are correct, consistent with the original code, and the update snippet changes are in the correct order, respond with exactly: "The provided update snippet and final code are correct and require no changes." and finish.
-   - If there are any inconsistencies, errors, omissions, or incorrect ordering in the update snippet or final code, proceed to the next step.
-
-3. **Provide Corrected Update Snippet and Final Code**
-
-   - Correct any errors, omissions, or ordering issues in the update snippet and/or final code.
-   - Include the new or changed code along with necessary surrounding context to show where the changes are applied.
-   - In the **update snippet**:
-     - **Retain any existing omissions (`// ... existing code ...` or similar) in the update snippet. Do not un-omit code that was previously omitted unless it is essential to correct an error.**
-     - If the code where changes are made is short (e.g., less than 50 lines), include the full code where changes are made without omitting lines.
-     - If the code where changes are made is long, you may use the exact ellipsis comment `// ... existing code ...` to represent omitted unchanged lines.
-     - Retain the structure and context necessary to understand where the changes are applied.
-     - **Ensure that the changes are presented in the correct order as they should be applied to the original code.**
-   - In the **final code**:
-     - Do not omit any code. Include the full corrected final code, ensuring it matches the original code with the changes applied in the correct order.
-   - Retain all original formatting, indentation, and code structure.
-   - **Provide a short description of the changes made** within `<describe_changes>` tags.
-   - Enclose the corrected update snippet within `<update_snippet>` tags.
-   - Enclose the corrected final code within `<final_code>` tags.
-
-**Instructions**
-
-- Do not include any explanations or commentary outside of the specified tags.
-- Begin your response with the `<describe_changes>` section, followed by the corrected update snippet and final code (if applicable).
-
-**Example Output:**
-
-*If no corrections are needed:*
-
-The provided update snippet and final code are correct and require no changes.
-
-*If corrections are needed:*
-
-<describe_changes>
-[Provide a short description of the changes here]
-</describe_changes>
-
-<update_snippet>
-[Provide the corrected update snippet here]
-</update_snippet>
-
-<final_code>
-[Provide the corrected final code here]
-</final_code>
+       ```
+       <final_code>[Provide the complete final code here]</final_code>
+       ```
 """.strip()
 
 
@@ -170,7 +128,7 @@ async def generate_update(db, original_code, existing_update_snippet, existing_f
     snippets_content = f"<original_code>\n{original_code}\n</original_code>"
     if existing_update_snippet or existing_final_code:
         if existing_update_snippet:
-            snippets_content += f"<existing_update_snippet>\n{existing_update_snippet}\n</existing_update_snippet>\n\n"
+            snippets_content += f"<update_snippet>\n{existing_update_snippet}\n</update_snippet>\n\n"
         if existing_final_code:
             snippets_content += f"<existing_final_code>\n{existing_final_code}\n</existing_final_code>"
     messages.append({"role": "user", "content": snippets_content.strip()})

@@ -13,3 +13,21 @@ Here's the updated-code with fully integrated changes, start the tag now:
 """
 
 simple_template = """<update>{update_snippet}</update>\n<code>{original_code}</code>"""
+
+
+# v15
+"""
+Your task is to merge all changes from the update snippet into the original code, ensuring that every modification is fully integrated.
+Maintain the code's structure, order, comments, and indentation precisely.
+Do not use any placeholders, ellipses, or omit any sections.
+Only output the updated code; do not include any additional text or explanations.
+
+### Original Code:
+{original_code}
+
+### Update Snippet:
+{update_snippet}
+
+
+### Updated Code:
+"""

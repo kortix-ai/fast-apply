@@ -33,84 +33,63 @@ client = AsyncOpenAI(
 DB_FILE = 'fix_query_cache.db'
 
 # It limits the rate of asynchronous operations to 120 requests per 60 seconds
-rate_limiter = AsyncLimiter(120, 60) 
+rate_limiter = AsyncLimiter(120, 60)
 
 # Prompt template
 PROMPT_TEMPLATE = """
-You are an AI assistant specialized in reviewing and correcting code update examples for model training purposes. Your task is to ensure that each data example is accurate, complete, and follows the specified format. You will be provided with three pieces of code:
+You are an AI code reviewer tasked with updating and correcting code based on provided changes. Here's what you need to do:
 
-- **Original code**
-- **Existing update snippet**
-- **Existing final code**
+First, you will be given two pieces of code:
 
-Please perform the following steps:
+1. The original code:
+2. The update snippet containing changes:
 
-1. **Review the Update Snippet and Final Code**
+Your task is to apply all changes from the update snippet to the original code and provide the corrected final code. Follow these guidelines:
 
-   - Compare the existing update snippet and existing final code against the original code.
-   - Check if the update snippet correctly represents the changes made from the original code to the final code.
-   - Verify that the existing final code is the result of applying the update snippet to the original code, without any discrepancies.
-   - Ensure that both the update snippet and final code are correct, complete, and consistent.
-   - **Ensure that the changes in the update snippet are presented in the correct order as they should be applied to the original code.**
+1. Apply all changes from the update snippet to the original code.
+2. Maintain the original formatting and structure of the code.
+3. Ensure that all necessary parts of the code are included.
+4. Enclose the complete, corrected code in <final_code> tags.
 
-2. **Determine if Corrections are Needed**
+Important notes:
+- Focus on accuracy and completeness when applying the changes.
+- Only apply the changes specified in the update snippet.
+- Preserve the original coding style and structure as much as possible.
+- Do not add any explanations or comments about the changes.
 
-   - If both the existing update snippet and existing final code are correct, consistent with the original code, and the update snippet changes are in the correct order, respond with exactly: "The provided update snippet and final code are correct and require no changes." and finish.
-   - If there are any inconsistencies, errors, omissions, or incorrect ordering in the update snippet or final code, proceed to the next step.
-
-3. **Provide Corrected Update Snippet and Final Code**
-
-   - Correct any errors, omissions, or ordering issues in the update snippet and/or final code.
-   - Include the new or changed code along with necessary surrounding context to show where the changes are applied.
-   - In the **update snippet**:
-     - **Retain any existing omissions (`// ... existing code ...` or similar) in the update snippet. Do not un-omit code that was previously omitted unless it is essential to correct an error.**
-     - If the code where changes are made is short (e.g., less than 50 lines), include the full code where changes are made without omitting lines.
-     - If the code where changes are made is long, you may use the exact ellipsis comment `// ... existing code ...` to represent omitted unchanged lines.
-     - Retain the structure and context necessary to understand where the changes are applied.
-     - **Ensure that the changes are presented in the correct order as they should be applied to the original code.**
-   - In the **final code**:
-     - Do not omit any code. Include the full corrected final code, ensuring it matches the original code with the changes applied in the correct order.
-   - Retain all original formatting, indentation, and code structure.
-   - **Provide a short description of the changes made** within `<describe_changes>` tags.
-   - Enclose the corrected update snippet within `<update_snippet>` tags.
-   - Enclose the corrected final code within `<final_code>` tags.
-
-**Instructions**
-
-- Do not include any explanations or commentary outside of the specified tags.
-- Begin your response with the `<describe_changes>` section, followed by the corrected update snippet and final code (if applicable).
-
-**Example Output:**
-
-*If no corrections are needed:*
-
-The provided update snippet and final code are correct and require no changes.
-
-*If corrections are needed:*
-
-<describe_changes>
-[Provide a short description of the changes here]
-</describe_changes>
-
-<update_snippet>
-[Provide the corrected update snippet here]
-</update_snippet>
-
-<final_code>
-[Provide the corrected final code here]
-</final_code>
+Your output should contain only the final, corrected code enclosed in <final_code> tags. Do not include any additional text, explanations, or justifications for the changes made.
 """.strip()
 
-
 async def init_db(db):
-    """Initialize the SQLite database and create the cache table if it doesn't exist."""
-    await db.execute('''
-        CREATE TABLE IF NOT EXISTS cache (
-            original_code TEXT PRIMARY KEY,
-            generated_content TEXT
-        )
-    ''')
-    await db.commit()
+    """Initialize the SQLite database and ensure the cache table has the correct schema."""
+    # Check if 'cache' table exists
+    async with db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cache'") as cursor:
+        table_exists = await cursor.fetchone()
+
+    if table_exists:
+        # Check if 'update_snippet' column exists
+        async with db.execute("PRAGMA table_info(cache)") as cursor:
+            columns = await cursor.fetchall()
+            column_names = [column[1] for column in columns]
+
+        if 'update_snippet' not in column_names:
+            # Since SQLite does not support IF NOT EXISTS in ALTER TABLE, we catch the exception if the column exists
+            try:
+                await db.execute("ALTER TABLE cache ADD COLUMN update_snippet TEXT")
+                await db.commit()
+            except Exception as e:
+                logging.error(f"Failed to add 'update_snippet' column: {e}")
+    else:
+        # Create the table with the correct schema
+        await db.execute('''
+            CREATE TABLE cache (
+                original_code TEXT,
+                update_snippet TEXT,
+                generated_content TEXT,
+                PRIMARY KEY (original_code, update_snippet)
+            )
+        ''')
+        await db.commit()
 
 
 async def clear_cache(db):
@@ -120,17 +99,17 @@ async def clear_cache(db):
     logging.info("Cache cleared successfully.")
 
 
-async def get_from_cache(db, original_code):
+async def get_from_cache(db, original_code, update_snippet):
     """Retrieve a result from the cache."""
-    async with db.execute("SELECT generated_content FROM cache WHERE original_code = ?", (original_code,)) as cursor:
+    async with db.execute("SELECT generated_content FROM cache WHERE original_code = ? AND update_snippet = ?", (original_code, update_snippet)) as cursor:
         result = await cursor.fetchone()
     return result[0] if result else None
 
 
-async def add_to_cache(db, original_code, generated_content):
+async def add_to_cache(db, original_code, update_snippet, generated_content):
     """Add a result to the cache."""
-    await db.execute("INSERT OR REPLACE INTO cache (original_code, generated_content) VALUES (?, ?)",
-                     (original_code, generated_content))
+    await db.execute("INSERT OR REPLACE INTO cache (original_code, update_snippet, generated_content) VALUES (?, ?, ?)",
+                     (original_code, update_snippet, generated_content))
     await db.commit()
 
 
@@ -139,7 +118,7 @@ def load_parquet(file_path):
     df = pq.read_table(file_path).to_pandas()
     if 'Content' in df.columns:
         df = df.rename(columns={'Content': 'original_code'})
-    for column in ['update_snippet', 'final_code', 'error']:
+    for column in ['final_code', 'error', 'update_snippet']:
         if column not in df.columns:
             df[column] = pd.NA
     return df
@@ -155,10 +134,10 @@ def display_parquet_info(df):
     logging.info(df[['File Name']].head())
 
 
-async def generate_update(db, original_code, existing_update_snippet, existing_final_code):
-    """Generate update snippet and final code using DeepSeek API or cache."""
+async def generate_update(db, original_code, update_snippet, existing_final_code):
+    """Generate final code using DeepSeek API or cache."""
     # Check if the result is already in the cache
-    cached_result = await get_from_cache(db, original_code)
+    cached_result = await get_from_cache(db, original_code, update_snippet)
     if cached_result:
         logging.info("Using cached result")
         return cached_result
@@ -168,11 +147,8 @@ async def generate_update(db, original_code, existing_update_snippet, existing_f
     ]
 
     snippets_content = f"<original_code>\n{original_code}\n</original_code>"
-    if existing_update_snippet or existing_final_code:
-        if existing_update_snippet:
-            snippets_content += f"<existing_update_snippet>\n{existing_update_snippet}\n</existing_update_snippet>\n\n"
-        if existing_final_code:
-            snippets_content += f"<existing_final_code>\n{existing_final_code}\n</existing_final_code>"
+    snippets_content += f"\n<update_snippet>\n{update_snippet}\n</update_snippet>"
+    # snippets_content += f"\n<existing_final_code>\n{existing_final_code}\n</existing_final_code>"
     messages.append({"role": "user", "content": snippets_content.strip()})
 
     max_retries = 2
@@ -190,11 +166,11 @@ async def generate_update(db, original_code, existing_update_snippet, existing_f
                         temperature=0,
                         max_tokens=8192
                     ),
-                    timeout=1000 
+                    timeout=1000
                 )
                 content = response.choices[0].message.content
                 # Cache the result
-                await add_to_cache(db, original_code, content)
+                await add_to_cache(db, original_code, update_snippet, content)
                 return content
         except asyncio.TimeoutError:
             logging.error(f"Timeout after 15 minutes for original_code: {original_code[:30]}...")
@@ -241,61 +217,50 @@ async def process_row(db, idx, row):
     """Process a single row of the DataFrame."""
     file_name = row.get('File Name', idx)
     logging.info(f"Processing file: {file_name}")
+    original_code = row['original_code']
+    update_snippet = row['update_snippet'] if not pd.isna(row['update_snippet']) else ""
+    existing_final_code = row['final_code'] if not pd.isna(row['final_code']) else ""
+
     generated_content = await generate_update(
         db,
-        row['original_code'],
-        row['update_snippet'] if not pd.isna(row['update_snippet']) else "",
-        row['final_code'] if not pd.isna(row['final_code']) else ""
+        original_code,
+        update_snippet,
+        existing_final_code
     )
     if generated_content == "DELETE_ROW":
         logging.info(f"Deleting row for file: {file_name}")
         return idx, None
-    
-    # Parse describe-changes
-    describe_changes = pd.NA
-    if '<describe_changes>' in generated_content and '</describe_changes>' in generated_content:
-        describe_changes = generated_content.split('<describe_changes>')[1].split('</describe_changes>')[0].strip()
-    
-    if "The provided update snippet and final code are correct and require no changes." in generated_content:
-        # Code is correct, no changes needed
+
+    if "The provided final code is complete and requires no changes." in generated_content:
+        # Code is complete, no changes needed
         return idx, {
-            'update_snippet': row['update_snippet'] if not pd.isna(row['update_snippet']) else pd.NA,
-            'final_code': row['final_code'] if not pd.isna(row['final_code']) else pd.NA,
+            'final_code': existing_final_code,
             'error': pd.NA,
-            'status': 'correct',
-            'describe_changes': describe_changes
+            'status': 'complete'
         }
-    
-    if '<update_snippet>' in generated_content and '<final_code>' in generated_content:
+
+    if '<final_code>' in generated_content:
         try:
-            update_snippet = generated_content.split('<update_snippet>')[1].split('</update_snippet>')[0].strip()
             final_code = generated_content.split('<final_code>')[1].split('</final_code>')[0].strip()
             return idx, {
-                'update_snippet': update_snippet if update_snippet else row['update_snippet'],
-                'final_code': final_code if final_code else row['final_code'],
-                'old_update_snippet': row['update_snippet'] if not pd.isna(row['update_snippet']) else pd.NA,
-                'old_final_code': row['final_code'] if not pd.isna(row['final_code']) else pd.NA,
+                'final_code': final_code if final_code else existing_final_code,
+                'old_final_code': existing_final_code if existing_final_code else pd.NA,
                 'error': pd.NA,
-                'status': 'fixed',
-                'describe_changes': describe_changes
+                'status': 'fixed'
             }
         except IndexError:
             logging.error(f"Error processing file: {file_name}. Output doesn't match expected pattern.")
             return idx, {
-                'update_snippet': row['update_snippet'],
-                'final_code': row['final_code'],
+                'final_code': existing_final_code,
                 'error': generated_content,
-                'status': 'error',
-                'describe_changes': describe_changes
+                'status': 'error'
             }
     else:
         logging.error(f"Response missing expected tags for file: {file_name}")
         return idx, {
-            'update_snippet': row['update_snippet'],
-            'final_code': row['final_code'],
+            'final_code': existing_final_code,
             'error': generated_content,
-            'status': 'missing_tags',
-            'describe_changes': describe_changes
+            'status': 'missing_tags'
         }
 
 
@@ -338,13 +303,11 @@ async def main(parquet_file, test_mode=False, should_clear_cache=False, test_sam
             if result is None:
                 rows_to_delete.append(idx)
             else:
-                df.at[idx, 'update_snippet'] = result['update_snippet']
                 df.at[idx, 'final_code'] = result['final_code']
-                df.at[idx, 'old_update_snippet'] = result.get('old_update_snippet', pd.NA)
-                df.at[idx, 'old_final_code'] = result.get('old_final_code', pd.NA)
+                if 'old_final_code' in result:
+                    df.at[idx, 'old_final_code'] = result.get('old_final_code', pd.NA)
                 df.at[idx, 'error'] = result['error']
                 df.at[idx, 'status'] = result['status']
-                df.at[idx, 'describe_changes'] = result['describe_changes']
 
         # Remove rows that encountered errors
         if rows_to_delete:

@@ -4,7 +4,6 @@ import pyarrow.parquet as pq
 import pandas as pd
 import anthropic
 from anthropic import BadRequestError
-from anthropic.types import Message, Error
 from anthropic.types.beta.message_create_params import MessageCreateParamsNonStreaming
 from anthropic.types.beta.messages.batch_create_params import Request
 import tiktoken
