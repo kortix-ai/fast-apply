@@ -31,3 +31,4 @@ data/
 log/
 
 *.json
+*.log
