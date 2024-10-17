@@ -1,12 +1,3 @@
-#  PROMPT = """You are an AI assistant tasked with generating synthetic data for model training. Your job is to generate a concise update snippet and the final updated code based on an original code file. Follow these instructions carefully:\n\nFirst, here is the original code:\n<original_code>\n{original_code}\n</original_code>\n\nYour task is to create a concise code snippet that implements an update to the original code. This update snippet should represent a meaningful change or addition to the original code. The update can be one or multiple changes, to add a feature, refactor, or delete code.\n\nWhen creating the update snippet:\n1. Focus on one or more areas of improvement or addition to the original code.\n2. Keep the snippet concise, including only the necessary changes.\n3. Include only the new or modified code in the update snippet, not the entire updated file.\n4. Do not repeat unchanged parts of the original code in the update snippet.\n5. Use ellipsis comments (e.g., \"... rest of the code remains the same ...\") ONLY if there are significant portions of the original code that remain unchanged and are not included in the snippet.\n6. If the entire file is being updated or replaced, do not use any ellipsis comments.\n7. Ensure that the update is relevant to the purpose of generating synthetic data.\n8. The update snippet should be an exact subset of the final code.\n\nWrite your update snippet within <update_snippet> tags.\n\nAfter creating the update snippet, your next task is to provide the complete, updated version of the code file. This final version should incorporate the changes from the update snippet into the original code.\n\nWhen creating the final updated code:\n1. Start with the original code as a base.\n2. Apply the changes from your update snippet.\n3. Ensure that the final version clearly shows how the update is applied to the original code.\n4. Make sure all parts of the code work together cohesively after the update.\n5. Retain all comments from the original code, including those not directly related to the update.\n6. Do not include any ellipsis comments or placeholders in the final code.\n\nWrite the final updated code within <final_code> tags.\n\nThroughout all versions of the code (original, update snippet, and final updated), maintain consistency in:\n1. Coding style (indentation, spacing, etc.)\n2. Variable and function naming conventions\n3. Overall structure and organization of the code\n\nRemember: The update snippet should only contain the new or changed code, while the final code should be the complete updated file.\n\nYour response should begin with the update snippet, followed by the final updated code. Do not include any additional explanation or commentary outside of the specified tags."""
-
-# v10
-#  PROMPT = """You are an AI assistant tasked with generating synthetic data for model training. Your job is to generate a concise update snippet and the final updated code based on an original code file. Follow these instructions carefully:\n\nFirst, here is the original code:\n<original_code>\n{original_code}\n</original_code>\n\nYour task is to create a concise code snippet that implements an update to the original code. This update snippet should represent a meaningful change or addition to the original code. The update can be one or multiple changes, to add a feature, refactor, or delete code.\n\nWhen creating the update snippet:\n1. Focus on one or more areas of improvement or addition to the original code.\n2. Keep the snippet concise, including only the necessary changes.\n3. Include only the new or modified code in the update snippet, not the entire updated file.\n4. Do not repeat unchanged parts of the original code in the update snippet.\n5. Use ellipsis comments (e.g., \"... rest of the code remains the same ...\") ONLY if there are significant portions of the original code that remain unchanged and are not included in the snippet.\n6. If the entire file is being updated or replaced, do not use any ellipsis comments.\n7. Ensure that the update is relevant to the purpose of generating synthetic data.\n8. The update snippet should be an exact subset of the final code.\n\nWrite your update snippet within <update_snippet> tags.\n\nAfter creating the update snippet, your next task is to provide the complete, updated version of the code file. This final version should incorporate the changes from the update snippet into the original code.\n\nWhen creating the final updated code:\n1. Start with the original code as a base.\n2. Apply the changes from your update snippet.\n3. Ensure that the final version clearly shows how the update is applied to the original code.\n4. Make sure all parts of the code work together cohesively after the update.\n5. Retain all comments from the original code, including those not directly related to the update.\n6. Do not include any ellipsis comments or placeholders in the final code.\n7. In the final updated code, only make changes based on the <update_snippet>. DO NOT make any additional changes beyond what is specified in the update snippet.\n\nWrite the final updated code within <final_code> tags.\n\nThroughout all versions of the code (original, update snippet, and final updated), maintain consistency in:\n1. Coding style (indentation, spacing, etc.)\n2. Variable and function naming conventions\n3. Overall structure and organization of the code\n\nRemember: The update snippet should only contain the new or changed code, while the final code should be the complete updated file.\n\nYour response should begin with the update snippet, followed by the final updated code. Do not include any additional explanation or commentary outside of the specified tags."""
-
-#V11
-# PROMPT = """You are an AI assistant tasked with generating synthetic data for model training. Your job is to generate a concise update snippet and the final updated code based on an original code file. Follow these instructions carefully:\n\nFirst, here is the original code:\n<original_code>\n{original_code}\n</original_code>\n\nYour task is to create a concise code snippet that implements an update to the original code. This update snippet should represent a meaningful change or addition to the original code. The update can be one or multiple changes, to add a feature, refactor, or delete code.\n\nWhen creating the update snippet:\n1. Focus on one or more areas of improvement or addition to the original code.\n2. Keep the snippet concise, including only the necessary changes.\n3. Include only the new or modified code in the update snippet, not the entire updated file.\n4. Do not repeat unchanged parts of the original code in the update snippet.\n5. Use ellipsis comments (e.g., \"... rest of the code remains the same ...\") ONLY if there are significant portions of the original code that remain unchanged and are not included in the snippet.\n6. If the entire file is being updated or replaced, do not use any ellipsis comments.\n7. Ensure that the update is relevant to the purpose of generating synthetic data.\n8. The update snippet should be an exact subset of the final code.\n9.Provide enough context to indicate where the new update should be placed within the original code. This could include surrounding lines or indicators of position (e.g., "... [existing code] ...").\n\nWrite your update snippet within <update_snippet> tags.\n\nAfter creating the update snippet, your next task is to provide the complete, updated version of the code file. This final version should incorporate the changes from the update snippet into the original code.\n\nWhen creating the final updated code:\n1. Start with the original code as a base.\n2. Apply the changes from your update snippet.\n3. Ensure that the final version clearly shows how the update is applied to the original code.\n4. Make sure all parts of the code work together cohesively after the update.\n5. Retain all comments from the original code, including those not directly related to the update.\n6. Do not include any ellipsis comments or placeholders in the final code.\n7. In the final updated code, only make changes based on the <update_snippet>. DO NOT make any additional changes beyond what is specified in the update snippet.\n\nWrite the final updated code within <final_code> tags.\n\nThroughout all versions of the code (original, update snippet, and final updated), maintain consistency in:\n1. Coding style (indentation, spacing, etc.)\n2. Variable and function naming conventions\n3. Overall structure and organization of the code\n\nRemember: The update snippet should only contain the new or changed code, while the final code should be the complete updated file.\n\nYour response should begin with the update snippet, followed by the final updated code. Do not include any additional explanation or commentary outside of the specified tags."""
-
-
 # V13
 
 PROMPT = """You are tasked with generating synthetic data for model training. Your job is to generate:
@@ -58,3 +49,63 @@ Write the final updated code within `<final_code>` tags.
 - Do not include any additional explanations or comments outside the specified tags.
 
 """
+
+
+# v14
+ONLY_UPDATE_PROMPT = """
+You are tasked with generating synthetic data for model training. Your job is to generate an update snippet implementing a meaningful change to the original code based on the specified goal.
+
+**Original code:**
+<original_code>
+{original_code}
+</original_code>
+
+**Specified goal:**
+{goal}
+
+**Instructions for creating the update snippet:**
+
+- Focus on implementing the specified goal with precision and detail.
+- Keep the snippet concise, including only the new or modified code.
+- Use the following format to highlight changes:
+    ```
+    // ... existing code ...
+    {{ edit_1 }}
+    // ... existing code ...
+    {{ edit_2 }}
+    // ... existing code ...
+    ```
+
+- Ensure that the position of the new update is deterministic when applied:
+  - Provide enough context to guide the placement of the update by including surrounding lines or clear position markers.
+  - Alternatively, specify logical placement within the code, e.g., "// Add after function `createContact`".
+- Do not repeat unchanged parts of the original code unnecessarily.
+- Use ellipsis comments (e.g., `// ... existing code ...`) only if significant portions are omitted.
+- Do not use ellipsis comments if the entire file is updated or replaced.
+- Ensure the update is directly related to the specified goal and adheres to any constraints.
+- The update snippet must be an exact subset of the final code.
+- Write the update snippet within `<update-snippet>` tags.
+
+**Constraints and Guidelines:**
+
+- Be as specific and detailed as possible in your implementation.
+- Maintain consistency in coding style, variable and function naming conventions, and overall structure.
+- Clearly state any assumptions or context needed for the update.
+- Do not include any explanations or comments outside the specified format.
+
+**Begin your response with the update snippet enclosed in `<update-snippet>` tags.**
+"""
+
+GOAL = """
+Add a new feature: 20
+Add two features: 20
+Modify an existing function: 25
+Integrate a new import: 5
+Delete a feature: 5
+Change the style of a block: 5
+Modify a single line: 5
+Optimize performance of a function: 5
+Update variable naming conventions: 5
+Enhance error handling: 5
+"""
+
