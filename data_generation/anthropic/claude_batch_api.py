@@ -99,7 +99,10 @@ def display_parquet_info(df):
     print("\nSchema:")
     print(df.dtypes)
     print("\nFirst few rows:")
-    print(df[['File Name']].head())
+    if 'File Name' in df.columns:
+        print(df[['File Name']].head())
+    else:
+        print(df.head())
 
 def update_token_count_json(input_tokens, output_tokens):
     """Update or create a JSON file with token counts."""
@@ -125,7 +128,19 @@ def save_json(df, json_file):
     df.to_json(json_file, orient='records', indent=2)
     print(f"JSON file saved to {json_file}")
 
-async def create_batches(df):
+async def process_cached_result(idx, cached_content, df):
+    """Process cached result and update DataFrame."""
+    try:
+        update_snippet = cached_content.split('<update-snippet>')[1].split('</update-snippet>')[0].strip()
+        final_code = pd.NA  # Modify if final_code is also generated
+        df.at[idx, 'update_snippet'] = update_snippet
+        df.at[idx, 'final_code'] = final_code
+        df.at[idx, 'error'] = pd.NA
+    except IndexError:
+        print(f"Error processing cached result for idx {idx}. Content doesn't match expected pattern.")
+        df.at[idx, 'error'] = cached_content
+
+async def create_batches(df, db):
     """Create batches of requests based on the Batch API limitations."""
     batches = []
     total_requests = len(df)
@@ -147,7 +162,7 @@ async def create_batches(df):
                 params = MessageCreateParamsNonStreaming(
                     model="claude-3-5-sonnet-20240620",
                     temperature=0,
-                    max_tokens=4096,
+                    max_tokens=8192,
                     messages=[{"role": "user", "content": prompt}]
                 )
                 request = Request(
@@ -158,18 +173,6 @@ async def create_batches(df):
         if requests:
             batches.append(requests)
     return batches
-
-async def process_cached_result(idx, cached_content, df):
-    """Process cached result and update DataFrame."""
-    try:
-        update_snippet = cached_content.split('<update-snippet>')[1].split('</update-snippet>')[0].strip()
-        final_code = pd.NA  # Modify if final_code is also generated
-        df.at[idx, 'update_snippet'] = update_snippet
-        df.at[idx, 'final_code'] = final_code
-        df.at[idx, 'error'] = pd.NA
-    except IndexError:
-        print(f"Error processing cached result for idx {idx}. Content doesn't match expected pattern.")
-        df.at[idx, 'error'] = cached_content
 
 async def send_batch(batch_requests):
     """Send a single batch to the Message Batches API."""
@@ -266,7 +269,7 @@ async def main(parquet_file, test_mode=False, should_clear_cache=False):
             await clear_cache(db)
 
         # Create batches
-        batches = await create_batches(df)
+        batches = await create_batches(df, db)
 
         if not batches:
             print("No batches to process.")
