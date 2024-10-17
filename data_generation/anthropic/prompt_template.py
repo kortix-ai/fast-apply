@@ -67,7 +67,7 @@ You are tasked with generating synthetic data for model training. Your job is to
 
 - Focus on implementing the specified goal with precision and detail.
 - Keep the snippet concise, including only the new or modified code.
-- Use the following format to highlight changes:
+- Example format:
     ```
     // ... existing code ...
     {{ edit_1 }}
@@ -78,9 +78,8 @@ You are tasked with generating synthetic data for model training. Your job is to
 
 - Ensure that the position of the new update is deterministic when applied:
   - Provide enough context to guide the placement of the update by including surrounding lines or clear position markers.
-  - Alternatively, specify logical placement within the code, e.g., "// Add after function `createContact`".
 - Do not repeat unchanged parts of the original code unnecessarily.
-- Use ellipsis comments (e.g., `// ... existing code ...`) only if significant portions are omitted.
+- Use ellipsis comments (e.g., `// ... existing code ...`, `... existing imports ...`, `... existing logics ...`) only if significant portions are omitted.
 - Do not use ellipsis comments if the entire file is updated or replaced.
 - Ensure the update is directly related to the specified goal and adheres to any constraints.
 - The update snippet must be an exact subset of the final code.
@@ -91,21 +90,19 @@ You are tasked with generating synthetic data for model training. Your job is to
 - Be as specific and detailed as possible in your implementation.
 - Maintain consistency in coding style, variable and function naming conventions, and overall structure.
 - Clearly state any assumptions or context needed for the update.
-- Do not include any explanations or comments outside the specified format.
+- Do not include any explanations or comments.
 
 **Begin your response with the update snippet enclosed in `<update-snippet>` tags.**
 """
 
+  # - Alternatively, specify logical placement within the code, e.g., "// Add after function `createContact`".
 GOAL = """
 Add a new feature: 20
-Add two features: 20
+Add two features: 10
 Modify an existing function: 25
-Integrate a new import: 5
-Delete a feature: 5
-Change the style of a block: 5
-Modify a single line: 5
-Optimize performance of a function: 5
-Update variable naming conventions: 5
-Enhance error handling: 5
+Modify two existing functions: 15
+Delete a feature: 2
+Small refactor : 5
+Modify a single line: 2
 """
 
