@@ -48,9 +48,9 @@ def format_prompt_output(final_code):
 def write_output(data, output_path, max_output_chars=None, use_simple_template=False, output_format='csv'):
     try:
         if output_format == 'csv':
-            write_csv(data, output_path, max_output_chars, use_simple_template)
+            return write_csv(data, output_path, max_output_chars, use_simple_template)
         elif output_format == 'jsonl':
-            write_jsonl(data, output_path, max_output_chars, use_simple_template)
+            return write_jsonl(data, output_path, max_output_chars, use_simple_template)
         else:
             raise ValueError(f"Unsupported output format: {output_format}")
     except Exception as e:
@@ -58,6 +58,7 @@ def write_output(data, output_path, max_output_chars=None, use_simple_template=F
         sys.exit(1)
 
 def write_csv(data, output_path, max_output_chars=None, use_simple_template=False):
+    processed_lines = 0
     with open(output_path, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=['Input', 'Output'], quoting=csv.QUOTE_ALL)
         writer.writeheader()
@@ -65,14 +66,31 @@ def write_csv(data, output_path, max_output_chars=None, use_simple_template=Fals
             row = process_item(item, max_output_chars, use_simple_template)
             if row:
                 writer.writerow(row)
+                processed_lines += 1
+    return processed_lines
 
 def write_jsonl(data, output_path, max_output_chars=None, use_simple_template=False):
+    processed_lines = 0
     with open(output_path, 'w', encoding='utf-8') as jsonl_file:
         for item in data:
             row = process_item(item, max_output_chars, use_simple_template)
             if row:
-                json.dump(row, jsonl_file)
+                jsonl_entry = {
+                    "contents": [
+                        {
+                            "role": "user",
+                            "parts": [{"text": row['Input']}]
+                        },
+                        {
+                            "role": "model",
+                            "parts": [{"text": row['Output']}]
+                        }
+                    ]
+                }
+                json.dump(jsonl_entry, jsonl_file)
                 jsonl_file.write('\n')
+                processed_lines += 1
+    return processed_lines
 
 def process_item(item, max_output_chars=None, use_simple_template=False):
     update_snippet = item.get('update_snippet', '')
@@ -86,6 +104,9 @@ def process_item(item, max_output_chars=None, use_simple_template=False):
         return {'Input': input_text, 'Output': output_text}
     return None
 
+def format_prompt_output(final_code):
+    return final_code
+
 def main():
     args = parse_arguments()
     input_path = Path(args.input)
@@ -96,8 +117,9 @@ def main():
         sys.exit(1)
 
     data = load_json(input_path)
-    write_output(data, output_path, args.max_output_chars, args.simple, args.format)
+    processed_lines = write_output(data, output_path, args.max_output_chars, args.simple, args.format)
     print(f"Successfully converted {input_path} to {output_path}")
+    print(f"Total lines processed: {processed_lines}")
 
 if __name__ == "__main__":
     main()
