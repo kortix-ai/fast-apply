@@ -50,7 +50,7 @@ Your task is to:
 2. **Output**:
    - **If the Final Code is complete** (all changes are correctly applied):
      - Output only: `The provided final code is complete and requires no changes.`
-   - **If the Final Code is incomplete or incorrect** (trucated, not all changes are applied or applied incorrectly):
+   - **If the Final Code is incomplete or incorrect** (truncated, not all changes are applied or applied incorrectly):
      - Generate the corrected full final code with all changes applied.
      - Enclose the corrected code within `<final_code>` and `</final_code>` tags, like so:
 
@@ -161,22 +161,20 @@ async def generate_update(db, original_code, existing_update_snippet, existing_f
             status = cre.status
             logging.error(f"HTTP error {status} for original_code: {original_code[:30]}... - {cre.message}")
             # Handle specific error codes
-            if status == 400:
-                logging.error("400 - Invalid Format: Modify request body format.")
-                return "DELETE_ROW"
-            elif status == 401:
-                logging.error("401 - Authentication Fails: Check API key.")
-                return "DELETE_ROW"
-            elif status == 402:
-                logging.error("402 - Insufficient Balance: Top up your account.")
-                return "DELETE_ROW"
-            elif status == 422:
-                logging.error("422 - Invalid Parameters: Modify request parameters.")
+            if status in {400, 401, 402, 422}:
+                if status == 400:
+                    logging.error("400 - Invalid Format: Modify request body format.")
+                elif status == 401:
+                    logging.error("401 - Authentication Fails: Check API key.")
+                elif status == 402:
+                    logging.error("402 - Insufficient Balance: Top up your account.")
+                elif status == 422:
+                    logging.error("422 - Invalid Parameters: Modify request parameters.")
                 return "DELETE_ROW"
             elif status == 429:
                 logging.warning("429 - Rate Limit Reached: Pacing requests.")
                 # Optionally, implement a wait before retrying
-            elif status in [500, 503]:
+            elif status in {500, 503}:
                 logging.warning(f"{status} - Server Error: Retrying after backoff.")
             else:
                 logging.error(f"Unhandled HTTP error {status}.")
@@ -208,52 +206,39 @@ async def process_row(db, idx, row):
     if generated_content == "DELETE_ROW":
         logging.info(f"Deleting row for file: {file_name}")
         return idx, None
-    
-    # Parse describe-changes
-    describe_changes = pd.NA
-    if '<describe_changes>' in generated_content and '</describe_changes>' in generated_content:
-        describe_changes = generated_content.split('<describe_changes>')[1].split('</describe_changes>')[0].strip()
-    
-    if "The provided update snippet and final code are correct and require no changes." in generated_content:
+
+    # Check for the completion message
+    if "The provided final code is complete and requires no changes." in generated_content:
         # Code is correct, no changes needed
         return idx, {
-            'update_snippet': row['update_snippet'] if not pd.isna(row['update_snippet']) else pd.NA,
             'final_code': row['final_code'] if not pd.isna(row['final_code']) else pd.NA,
             'error': pd.NA,
-            'status': 'correct',
-            'describe_changes': describe_changes
+            'status': 'correct'
         }
-    
-    if '<update_snippet>' in generated_content and '<final_code>' in generated_content:
+
+    # Check if <final_code> is present
+    if '<final_code>' in generated_content and '</final_code>' in generated_content:
         try:
-            update_snippet = generated_content.split('<update_snippet>')[1].split('</update_snippet>')[0].strip()
             final_code = generated_content.split('<final_code>')[1].split('</final_code>')[0].strip()
             return idx, {
-                'update_snippet': update_snippet if update_snippet else row['update_snippet'],
                 'final_code': final_code if final_code else row['final_code'],
-                'old_update_snippet': row['update_snippet'] if not pd.isna(row['update_snippet']) else pd.NA,
                 'old_final_code': row['final_code'] if not pd.isna(row['final_code']) else pd.NA,
                 'error': pd.NA,
-                'status': 'fixed',
-                'describe_changes': describe_changes
+                'status': 'fixed'
             }
         except IndexError:
             logging.error(f"Error processing file: {file_name}. Output doesn't match expected pattern.")
             return idx, {
-                'update_snippet': row['update_snippet'],
                 'final_code': row['final_code'],
                 'error': generated_content,
-                'status': 'error',
-                'describe_changes': describe_changes
+                'status': 'error'
             }
     else:
-        logging.error(f"Response missing expected tags for file: {file_name}")
+        logging.error(f"Response missing expected <final_code> tags for file: {file_name}")
         return idx, {
-            'update_snippet': row['update_snippet'],
             'final_code': row['final_code'],
             'error': generated_content,
-            'status': 'missing_tags',
-            'describe_changes': describe_changes
+            'status': 'missing_tags'
         }
 
 
@@ -296,13 +281,10 @@ async def main(parquet_file, test_mode=False, should_clear_cache=False, test_sam
             if result is None:
                 rows_to_delete.append(idx)
             else:
-                df.at[idx, 'update_snippet'] = result['update_snippet']
                 df.at[idx, 'final_code'] = result['final_code']
-                df.at[idx, 'old_update_snippet'] = result.get('old_update_snippet', pd.NA)
                 df.at[idx, 'old_final_code'] = result.get('old_final_code', pd.NA)
                 df.at[idx, 'error'] = result['error']
                 df.at[idx, 'status'] = result['status']
-                df.at[idx, 'describe_changes'] = result['describe_changes']
 
         # Remove rows that encountered errors
         if rows_to_delete:
