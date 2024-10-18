@@ -5,13 +5,29 @@ import os
 import requests
 import json
 from tests_evaluate.common.single_test_prompt import original_code, update_snippet
-from tests_evaluate.common.inference_prompt import template
+
+
+SYSTEM_PROMPT = """You are an coding assistant that helps merge code updates, ensuring every modification is fully integrated."""
+
+USER_PROMPT = """Merge all changes from the <update> snippet into the <code> below.
+- Preserve the code's structure, order, comments, and indentation exactly.
+- Output only the updated code, enclosed within <updated-code> and </updated-code> tags.
+- Do not include any additional text, explanations, placeholders, ellipses, or code fences.
+
+<code>{original_code}</code>
+
+<update>{update_snippet}</update>
+
+Provide the complete updated code.
+"""
+
 
 # Constants
 API_KEY = "fw_3ZhfovPCeNKHpHcEnS9D9HmX"
 MAX_TOKENS = 8192
 DEFAULT_PATTERN = "accounts/marko-1d84ff/models/"
-DEFAULT_MODEL = "8b-v12"
+# DEFAULT_MODEL = "8b-v12"
+DEFAULT_MODEL = "fast-apply-v16-1p5b-instruct"
 URL = "https://api.fireworks.ai/inference/v1/completions"
 
 def count_tokens(text):
@@ -28,10 +44,10 @@ def execute_query(model_name, text, stream_output=False):
         "prompt": text,
         "max_tokens": MAX_TOKENS,
         "temperature": 0,
-        "top_p": 1,
-        "top_k": 0,
-        "frequency_penalty": 0,
-        "presence_penalty": 0,
+        # "top_p": 1,
+        # "top_k": 0,
+        # "frequency_penalty": 0,
+        # "presence_penalty": 0,
         "n": 1,
         "stream": True,
         "context_length_exceeded_behavior": "truncate",
@@ -82,7 +98,7 @@ def main():
     try:
         model_name = DEFAULT_PATTERN + args.model
         
-        text = template.format(original_code=original_code, update_snippet=update_snippet)
+        # text = template.format(original_code=original_code, update_snippet=update_snippet)
         
         print(f"Running test with model: {model_name}")
         print("Test Query (Streaming):")

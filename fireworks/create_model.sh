@@ -1,3 +1,7 @@
+# 1.5B qwen Coder Instruct
+firectl create model 1p5B-v16 model/1B/ --base-model accounts/fireworks/models/qwen2p5-coder-1p5b-instruct -a   marko-1d84ff
+
+
 # 1B
 # firectl create model 1b-v12 1B/ --base-model accounts/fireworks/models/llama-v3p2-1b-instruct -a     marko-1d84ff
 

@@ -6,3 +6,6 @@ Processing batches:   0%|                                                       
 
 
 python utils/split_train_test.py -i data/fix_data/fixed_train_10_9_24.parquet -tr train.parquet -te test.parquet -n 200
+
+
+// "unsloth_version": "2024.10.2",

@@ -8,6 +8,8 @@ from tqdm.asyncio import tqdm, tqdm_asyncio
 from tests_evaluate.common.inference_prompt import template, simple_template, SYSTEM_PROMPT, USER_PROMPT
 import argparse
 
+
+
 def init_openai_client(pod, api_key):
     """Initialize and return the AsyncOpenAI client."""
     url = f"https://api.runpod.ai/v2/{pod}/openai/v1"
@@ -25,8 +27,10 @@ async def execute_query(client, model, messages, max_tokens, use_system_user_pro
         response = await client.chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
+            temperature=0,
         )
+        # print(response)
 
         generated_text = response.choices[0].message.content
         elapsed_time = time.time() - start_time
@@ -64,7 +68,7 @@ async def process_row(client, model, row, max_tokens, model_name, use_simple_tem
             {'role': 'user', 'content': user_message}
         ]
         text = user_message
-        print(messages)
+        # print(messages)
     elif use_simple_template:
         text = simple_template.format(original_code=original_code, update_snippet=update_snippet)
         messages = [{'role': 'user', 'content': text}]
@@ -72,7 +76,7 @@ async def process_row(client, model, row, max_tokens, model_name, use_simple_tem
         text = template.format(original_code=original_code, update_snippet=update_snippet)
         messages = [{'role': 'user', 'content': text}]
     result = await execute_query(client, model, messages, max_tokens, use_system_user_prompt)
-    print(result)
+    # print(result)
     if result:
         result['model'] = model_name
         result['input'] = text
