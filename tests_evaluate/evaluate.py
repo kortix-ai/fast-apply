@@ -37,16 +37,21 @@ def count_diff_lines(S1, S2):
     total_diff = added + removed
     return total_diff, added, removed
 
-def parse_generated_text(text):
+def parse_generated_text(text, use_simple_template=False):
     """
-    Parse the generated text to extract the code within <updated-code> or <update-code> tags.
+    Parse the generated text to extract the code within <updated-code> or <update-code> tags,
+    or return the entire text if using the simple template.
 
     Parameters:
-    - text: The generated text containing code within specific tags
+    - text: The generated text containing code within specific tags or the entire updated code
+    - use_simple_template: Boolean indicating whether the simple template was used
 
     Returns:
     - Extracted code as a string
     """
+    if use_simple_template:
+        return text.strip()
+    
     try:
         tag_pairs = [
             ("<updated-code>", "</updated-code>"),
@@ -68,7 +73,7 @@ def parse_generated_text(text):
         print(f"Error parsing generated text: {e}", file=sys.stderr)
         return text.strip()
 
-def calculate_diff(data, limit=None):
+def calculate_diff(data, limit=None, use_simple_template=False):
     """
     Calculate the diff between final_code and generated_text for each entry.
     Additionally, calculate diffs based on sorted lines for an alternative accuracy metric.
@@ -76,6 +81,7 @@ def calculate_diff(data, limit=None):
     Parameters:
     - data: List of entries containing 'final_code' and 'generated_text'
     - limit: Optional limit on the number of entries to process
+    - use_simple_template: Boolean indicating whether the simple template was used
 
     Returns:
     - List of dictionaries with original and sorted diff results
@@ -86,7 +92,7 @@ def calculate_diff(data, limit=None):
     results = []
     for entry in data:
         final_code = entry.get('final_code', '')
-        generated_text = parse_generated_text(entry.get('generated_text', ''))
+        generated_text = parse_generated_text(entry.get('generated_text', ''), use_simple_template)
 
         # Original diff
         total_diff, added, removed = count_diff_lines(final_code, generated_text)
@@ -196,6 +202,7 @@ def main():
     parser.add_argument("input_files", nargs='+', help="Paths to the input JSON files")
     parser.add_argument("--output_file", help="Path to the output JSON file (optional)")
     parser.add_argument("-n", type=int, help="Number of examples to process (optional)")
+    parser.add_argument("--simple", action="store_true", help="Use simple template without tags")
     args = parser.parse_args()
 
     all_results = {}
@@ -207,7 +214,7 @@ def main():
             print(f"Error reading {input_file}: {e}", file=sys.stderr)
             continue
 
-        results = calculate_diff(data, limit=args.n)
+        results = calculate_diff(data, limit=args.n, use_simple_template=args.simple)
         all_results[input_file] = results
 
     if args.output_file:

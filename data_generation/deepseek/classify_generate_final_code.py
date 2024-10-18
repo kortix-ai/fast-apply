@@ -20,6 +20,10 @@ logging.basicConfig(
     ]
 )
 
+# Set logging level for openai to ERROR to suppress HTTP request logs
+logging.getLogger("openai").setLevel(logging.ERROR)
+logging.getLogger("httpx").setLevel(logging.ERROR)
+
 # Load environment variables
 load_dotenv()
 
