@@ -6,10 +6,12 @@ import time
 from tests_evaluate.common.single_test_prompt import original_code, update_snippet
 from tests_evaluate.common.inference_prompt import template
 
+import os
+
 # Constants
-PROJECT_ID = "530422023205"
-LOCATION = "us-central1"
-MODEL_ID = "projects/530422023205/locations/us-central1/endpoints/2237885494035742720"
+PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
+LOCATION = os.getenv("GOOGLE_LOCATION")
+MODEL_ID = os.getenv("GOOGLE_MODEL_ID")
 
 def init_vertex_ai():
     """Initialize Vertex AI client."""

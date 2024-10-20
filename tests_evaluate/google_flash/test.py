@@ -1,16 +1,13 @@
-import time
-import tiktoken
-import argparse
 import os
-import json
-import pandas as pd
 import google.generativeai as genai
+import tiktoken
+import time
+import pandas as pd
 from tqdm import tqdm
+import json
+import argparse
 
-# Constants
-API_KEY = "AIzaSyDWRqdg15wX03c8V358ipORcaQJqvgqlLo"
-# MAX_TOKENS = 
-DEFAULT_NUM_TESTS = 1
+API_KEY = os.getenv("GEMINI_KEY")
 
 def init_google_client(api_key):
     """Initialize and return the Google API client."""
@@ -155,6 +152,7 @@ def main():
     parser.add_argument("input_file", nargs='?', help="Path to the input Parquet or JSON file")
     parser.add_argument("--model", required=True, help="The model identifier to use for the test.")
     parser.add_argument("--print-prompt", action="store_true", help="Print the full prompt before sending the query")
+    DEFAULT_NUM_TESTS = 1
     parser.add_argument("-n", "--additional-tests", type=int, default=DEFAULT_NUM_TESTS, help="Number of additional tests to run (default: 1)")
     parser.add_argument("--prompt-template", default="tests_evaluate/common/inference_prompt.py", help="File path for the prompt template.")
     parser.add_argument("--single-test-prompt", default="tests_evaluate/common/single_test_prompt.py", help="File path for the single test prompt.")

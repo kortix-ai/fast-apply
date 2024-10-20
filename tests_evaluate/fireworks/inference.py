@@ -7,9 +7,10 @@ import requests
 import argparse
 from tqdm.asyncio import tqdm_asyncio
 from tests_evaluate.common.inference_prompt import template
+import os
 
 # Constants
-API_KEY = "fw_3ZhfovPCeNKHpHcEnS9D9HmX"
+API_KEY = os.getenv("FIREWORKS_API_KEY")
 MAX_TOKENS = 8192
 MODEL_PREFIX = "accounts/marko-1d84ff/models/"
 DEFAULT_MODEL = "1b-v12"

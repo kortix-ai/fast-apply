@@ -48,7 +48,7 @@ def main():
         from tests_evaluate.common.inference_prompt import template
         from tests_evaluate.common.single_test_prompt import original_code, update_snippet
 
-        api_key = os.environ.get("MISTRAL_API_KEY")
+        api_key = os.getenv("MISTRAL_API_KEY")
         if not api_key:
             raise ValueError("MISTRAL_API_KEY environment variable is not set")
 

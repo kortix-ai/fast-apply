@@ -1,10 +1,11 @@
+import os
 import time
 import tiktoken
 import argparse
 from openai import OpenAI
 
 # Constants
-API_KEY = "PAP4OD5L12KDG6NHBL6UNX3TOOK78C1GH9MKM9UZ"
+API_KEY = os.getenv("RUNPOD_API_KEY")
 MAX_TOKENS = 4192
 
 

@@ -95,7 +95,7 @@ def main():
     parser.add_argument("--num_queries", type=int, help="Number of queries to run (if less than max examples)")
     args = parser.parse_args()
 
-    api_key = os.environ.get("MISTRAL_API_KEY")
+    api_key = os.getenv("MISTRAL_API_KEY")
     if not api_key:
         raise ValueError("MISTRAL_API_KEY environment variable is not set")
 

@@ -8,9 +8,11 @@ import vertexai
 from vertexai.generative_models import GenerativeModel, SafetySetting
 from tests_evaluate.common.inference_prompt import template
 
+import os
+
 # Constants
-PROJECT_ID = "530422023205"
-LOCATION = "us-central1"
+PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
+LOCATION = os.getenv("GOOGLE_LOCATION")
 MODEL_ID = "projects/530422023205/locations/us-central1/endpoints/2237885494035742720"
 MAX_TOKENS = 8192
 

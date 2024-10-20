@@ -1,3 +1,4 @@
+import os
 import time
 import tiktoken
 import argparse
@@ -21,7 +22,7 @@ Provide the complete updated code.
 
 
 # Constants
-API_KEY = "fw_3ZhfovPCeNKHpHcEnS9D9HmX"
+API_KEY = os.getenv("FIREWORKS_API_KEY")
 MAX_TOKENS = 8192
 DEFAULT_PATTERN = "accounts/marko-1d84ff/models/"
 DEFAULT_MODEL = "fast-apply-v16-1p5b-instruct"

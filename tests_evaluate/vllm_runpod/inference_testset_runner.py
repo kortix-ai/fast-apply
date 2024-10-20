@@ -1,3 +1,4 @@
+import os
 import asyncio
 import time
 import tiktoken
@@ -7,6 +8,8 @@ from openai import AsyncOpenAI
 from tqdm.asyncio import tqdm, tqdm_asyncio
 from tests_evaluate.common.inference_prompt import template, simple_template, SYSTEM_PROMPT, USER_PROMPT
 import argparse
+
+API_KEY = os.getenv("RUNPOD_API_KEY")
 
 
 
@@ -113,7 +116,6 @@ async def main():
     parser = argparse.ArgumentParser(description="Generate output for a testset using serverless vLLM.")
     parser.add_argument("input_file", help="Path to the input Parquet or JSON file")
     parser.add_argument("-p", "--pod", default="vllm-s3jk7plkef1ov8", help="RunPod ID")
-    parser.add_argument("-k", "--api_key", default="PAP4OD5L12KDG6NHBL6UNX3TOOK78C1GH9MKM9UZ", help="API Key")
     parser.add_argument("-m", "--model_name", help="Model name")
     parser.add_argument("-t", "--max_tokens", type=int, default=4192, help="Maximum number of tokens for generation")
     parser.add_argument("-n", "--num_queries", type=int, help="Number of queries to run (if less than max examples)")
@@ -122,7 +124,7 @@ async def main():
     parser.add_argument("--test", type=int, help="Run only the first N tests")
     args = parser.parse_args()
 
-    results = await process_testset(args.input_file, args.pod, args.api_key, args.model_name, args.max_tokens, args.num_queries, args.use_simple_template, args.use_system_user_prompt, args.test)
+    results = await process_testset(args.input_file, args.pod, API_KEY, args.model_name, args.max_tokens, args.num_queries, args.use_simple_template, args.use_system_user_prompt, args.test)
     output_file = f"data/testset_results_{args.model_name}.json"
     save_results(results, output_file)
     print(f"Results saved to {output_file}")
