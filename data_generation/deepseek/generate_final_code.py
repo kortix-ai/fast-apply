@@ -1,6 +1,5 @@
 import os
 import aiosqlite
-import pyarrow.parquet as pq
 import pandas as pd
 import asyncio
 from dotenv import load_dotenv
@@ -10,6 +9,7 @@ import argparse
 import logging
 from openai import AsyncOpenAI
 from aiohttp import ClientError, ClientResponseError
+from data_generation.utils import load_parquet, save_parquet, save_json, display_parquet_info
 
 # Configure logging
 logging.basicConfig(
@@ -111,27 +111,6 @@ async def add_to_cache(db, original_code, update_snippet, generated_content):
     await db.execute("INSERT OR REPLACE INTO cache (original_code, update_snippet, generated_content) VALUES (?, ?, ?)",
                      (original_code, update_snippet, generated_content))
     await db.commit()
-
-
-def load_parquet(file_path):
-    """Load a Parquet file and return a DataFrame with necessary columns."""
-    df = pq.read_table(file_path).to_pandas()
-    if 'Content' in df.columns:
-        df = df.rename(columns={'Content': 'original_code'})
-    for column in ['final_code', 'error', 'update_snippet']:
-        if column not in df.columns:
-            df[column] = pd.NA
-    return df
-
-
-def display_parquet_info(df):
-    """Display information about the Parquet file."""
-    logging.info("Parquet File Information:")
-    logging.info(f"Number of files: {len(df)}")
-    logging.info("\nSchema:")
-    logging.info(df.dtypes)
-    logging.info("\nFirst few rows:")
-    logging.info(df[['File Name']].head())
 
 
 async def generate_update(db, original_code, update_snippet, existing_final_code):
@@ -262,20 +241,6 @@ async def process_row(db, idx, row):
             'error': generated_content,
             'status': 'missing_tags'
         }
-
-
-def save_parquet(df, parquet_file):
-    """Save the DataFrame to a Parquet file."""
-    output_file = os.path.join(os.path.dirname(parquet_file), f"fixed_{os.path.basename(parquet_file)}")
-    df.to_parquet(output_file, index=False)
-    logging.info(f"Updated Parquet file saved to {output_file}")
-
-
-def save_json(df, json_file):
-    """Save the DataFrame to a JSON file."""
-    output_file = os.path.join(os.path.dirname(json_file), f"fixed_{os.path.basename(json_file)}")
-    df.to_json(output_file, orient='records', indent=2)
-    logging.info(f"JSON file saved to {output_file}")
 
 
 async def main(parquet_file, test_mode=False, should_clear_cache=False, test_samples=5):

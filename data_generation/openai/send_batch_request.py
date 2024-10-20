@@ -10,6 +10,9 @@ import json
 import os
 import glob
 from datetime import datetime
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -37,7 +40,7 @@ def log_batch_info(file_id: str, batch_id: str, config: dict, batch_number: int)
         for key, value in config.items():
             f.write(f"  {key}: {value}\n")
     
-    print(f"Batch {batch_number} information logged to {log_file}")
+    logging.info(f"Batch {batch_number} information logged to {log_file}")
 
 def upload_batch_file(file_path: str):
     """
@@ -52,10 +55,10 @@ def upload_batch_file(file_path: str):
     try:
         with open(file_path, "rb") as file:
             response = client.files.create(file=file, purpose="batch")
-        print(f"Uploaded batch file. File ID: {response.id}")
+        logging.info(f"Uploaded batch file. File ID: {response.id}")
         return response
     except Exception as e:
-        print(f"Error uploading batch file: {e}")
+        logging.error(f"Error uploading batch file: {e}")
         return None
 
 def create_batch_job(file_id: str, endpoint: str, completion_window: str = "24h", metadata: dict = None):
@@ -78,10 +81,10 @@ def create_batch_job(file_id: str, endpoint: str, completion_window: str = "24h"
             completion_window=completion_window,
             metadata=metadata
         )
-        print(f"Created batch job. Batch ID: {batch.id}")
+        logging.info(f"Created batch job. Batch ID: {batch.id}")
         return batch
     except Exception as e:
-        print(f"Error creating batch job: {e}")
+        logging.error(f"Error creating batch job: {e}")
         return None
 
 def check_batch_status(batch_id: str):
@@ -96,10 +99,10 @@ def check_batch_status(batch_id: str):
     """
     try:
         batch = client.batches.retrieve(batch_id)
-        print(f"Batch Status: {batch.status}")
+        logging.info(f"Batch Status: {batch.status}")
         return batch
     except Exception as e:
-        print(f"Error checking batch status: {e}")
+        logging.error(f"Error checking batch status: {e}")
         return None
 
 def wait_for_completion(batch_id: str, check_interval: int = 60):
@@ -116,13 +119,13 @@ def wait_for_completion(batch_id: str, check_interval: int = 60):
     while True:
         batch = check_batch_status(batch_id)
         if not batch:
-            print("Failed to retrieve batch status. Exiting.")
+            logging.error("Failed to retrieve batch status. Exiting.")
             return None
         if batch.status in ["completed", "failed", "expired", "cancelled"]:
             break
-        print(f"Batch job {batch_id} is {batch.status}. Waiting for {check_interval} seconds...")
+        logging.info(f"Batch job {batch_id} is {batch.status}. Waiting for {check_interval} seconds...")
         time.sleep(check_interval)
-    print(f"Batch job {batch_id} has finished with status: {batch.status}")
+    logging.info(f"Batch job {batch_id} has finished with status: {batch.status}")
     return batch
 
 def retrieve_results(batch: object, output_file: str):
@@ -134,7 +137,7 @@ def retrieve_results(batch: object, output_file: str):
         output_file (str): Path to save the results.
     """
     if not batch.output_file_id:
-        print("No output file ID found. The batch might have failed.")
+        logging.warning("No output file ID found. The batch might have failed.")
         return
 
     try:
@@ -144,9 +147,9 @@ def retrieve_results(batch: object, output_file: str):
         with open(output_file, 'w') as f:
             f.write(content)
 
-        print(f"Batch results saved to {output_file}")
+        logging.info(f"Batch results saved to {output_file}")
     except Exception as e:
-        print(f"Error retrieving results: {e}")
+        logging.error(f"Error retrieving results: {e}")
 
 def process_multiple_batches(batch_dir: str, output_dir: str = None, endpoint: str = "/v1/chat/completions", metadata: dict = None, check_interval: int = 60):
     """
@@ -165,7 +168,7 @@ def process_multiple_batches(batch_dir: str, output_dir: str = None, endpoint: s
     batch_files = sorted(glob.glob(os.path.join(batch_dir, "batch_*.jsonl")))
     
     for batch_number, batch_file in enumerate(batch_files, start=1):
-        print(f"Processing Batch {batch_number}: {batch_file}")
+        logging.info(f"Processing Batch {batch_number}: {batch_file}")
         
         # Generate output file name
         output_file = os.path.join(output_dir, f"output_batch_{batch_number:03d}.jsonl")
@@ -173,13 +176,13 @@ def process_multiple_batches(batch_dir: str, output_dir: str = None, endpoint: s
         # Upload the batch input file
         batch_file_obj = upload_batch_file(batch_file)
         if not batch_file_obj:
-            print(f"Skipping Batch {batch_number} due to error in uploading batch file.")
+            logging.warning(f"Skipping Batch {batch_number} due to error in uploading batch file.")
             continue
 
         # Create the batch job
         batch = create_batch_job(batch_file_obj.id, endpoint, metadata=metadata)
         if not batch:
-            print(f"Skipping Batch {batch_number} due to error in creating batch job.")
+            logging.warning(f"Skipping Batch {batch_number} due to error in creating batch job.")
             continue
 
         # Log the batch information
@@ -199,9 +202,9 @@ def process_multiple_batches(batch_dir: str, output_dir: str = None, endpoint: s
             # Retrieve and save the results
             retrieve_results(completed_batch, output_file)
         else:
-            print(f"Batch {batch_number} ended with status: {completed_batch.status if completed_batch else 'Unknown'}. No results to retrieve.")
+            logging.warning(f"Batch {batch_number} ended with status: {completed_batch.status if completed_batch else 'Unknown'}. No results to retrieve.")
 
-        print(f"Finished processing Batch {batch_number}\n")
+        logging.info(f"Finished processing Batch {batch_number}\n")
 
 def main():
     parser = argparse.ArgumentParser(description="Send batch requests to OpenAI's Batch API.")
@@ -214,7 +217,7 @@ def main():
     args = parser.parse_args()
 
     if not os.path.exists(args.batch_dir):
-        print(f"Error: Batch directory {args.batch_dir} does not exist.")
+        logging.error(f"Error: Batch directory {args.batch_dir} does not exist.")
         return
 
     output_dir = args.output_dir if args.output_dir else args.batch_dir
@@ -225,14 +228,14 @@ def main():
         try:
             metadata = json.loads(args.metadata)
         except json.JSONDecodeError:
-            print("Invalid metadata JSON string. Ignoring metadata.")
+            logging.warning("Invalid metadata JSON string. Ignoring metadata.")
             metadata = None
     else:
         metadata = None
 
     # Ensure API key is set
     if not client.api_key:
-        print("Error: OpenAI API key not set. Please set the OPENAI_API_KEY environment variable.")
+        logging.error("Error: OpenAI API key not set. Please set the OPENAI_API_KEY environment variable.")
         return
 
     # Process all batch files in the directory

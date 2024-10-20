@@ -1,5 +1,3 @@
-# V13
-
 PROMPT = """You are tasked with generating synthetic data for model training. Your job is to generate:
 1. An update snippet implementing a meaningful change to the original code.
 2. The final updated code incorporating this change.
@@ -51,7 +49,6 @@ Write the final updated code within `<final_code>` tags.
 """
 
 
-# v14
 ONLY_UPDATE_PROMPT = """
 You are tasked with generating synthetic data for model training. Your job is to generate an update snippet implementing a meaningful change to the original code based on the specified goal.
 

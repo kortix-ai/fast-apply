@@ -3,11 +3,7 @@ import pandas as pd
 import json
 import glob
 import argparse
-
-def calculate_cost(input_tokens, output_tokens):
-    input_cost = (input_tokens / 1_000_000) * 1.25  # $1.25 per 1M tokens for input
-    output_cost = (output_tokens / 1_000_000) * 5  # $5 per 1M tokens for output
-    return input_cost + output_cost
+from data_generation.utils import calculate_cost
 
 def load_and_pair_batches(batch_dir):
     input_files = sorted(glob.glob(os.path.join(batch_dir, "batch_*.jsonl")))
