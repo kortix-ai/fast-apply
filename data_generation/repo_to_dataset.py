@@ -48,7 +48,7 @@ def should_ignore(path, is_dir=False):
         '.tpl', '.txt', '.webp',
         '.mdx', '.snapshot', '.pem', '.pic', '.config', '.patch',
         '.alt', '.approvers', '.avif', '.bak', '.default', '.dev', '.development', '.empty', '.eot', '.glb', '.i18n-images', '.icns', '.local', '.new', '.plist', '.po', '.production', '.sample', '.skip', '.stderr', '.test', '.webmanifest', '.xyz', '.drawio',
-        '.env',
+        '.env', '.p12', '.datasource', '.custom-routes', 
     ]
     
     name = os.path.basename(path)
@@ -211,11 +211,11 @@ def main():
     parser.add_argument('--output', default='output.parquet', help='Output file name (default: output.parquet)')
     parser.add_argument('--log', default='repo.log', help='Log file name (default: repo.log)')
     parser.add_argument('--sample-lt-100', type=int, default=0, help='Number of samples for files with <100 tokens')
-    parser.add_argument('--sample-100-399', type=int, default=1000, help='Number of samples for files with 100-399 tokens')
+    parser.add_argument('--sample-100-399', type=int, default=500, help='Number of samples for files with 100-399 tokens')
     parser.add_argument('--sample-400-999', type=int, default=1000, help='Number of samples for files with 400-999 tokens')
-    parser.add_argument('--sample-1000-1999', type=int, default=1000, help='Number of samples for files with 1000-1999 tokens')
+    parser.add_argument('--sample-1000-1999', type=int, default=3000, help='Number of samples for files with 1000-1999 tokens')
     parser.add_argument('--sample-2000-2999', type=int, default=1000, help='Number of samples for files with 2000-2999 tokens')
-    parser.add_argument('--sample-3000-3999', type=int, default=1000, help='Number of samples for files with 3000-3999 tokens')
+    parser.add_argument('--sample-3000-3999', type=int, default=0, help='Number of samples for files with 3000-3999 tokens')
     parser.add_argument('--sample-4000-4999', type=int, default=0, help='Number of samples for files with 4000-4999 tokens')
     parser.add_argument('--sample-5000-9999', type=int, default=0, help='Number of samples for files with 5000-9999 tokens')
     parser.add_argument('--sample-10000-plus', type=int, default=0, help='Number of samples for files with 10000+ tokens')
@@ -245,6 +245,9 @@ def main():
 
     sampled_df = sample_dataset(df, sample_sizes)
     if sampled_df is not None and not sampled_df.empty:
+        # Shuffle the sampled DataFrame
+        sampled_df = sampled_df.sample(frac=1).reset_index(drop=True)
+        
         sampled_results = [(row['file_path'], read_file_content(row['file_path']), row['line_count'], row['token_count'])
                            for _, row in sampled_df.iterrows()]
         save_to_parquet(sampled_results, args.output)

@@ -32,3 +32,4 @@ log/
 
 *.json
 *.log
+cache/
