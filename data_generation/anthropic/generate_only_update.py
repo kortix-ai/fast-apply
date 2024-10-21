@@ -1,8 +1,8 @@
 import os
 import aiosqlite
+import pyarrow.parquet as pq
 import pandas as pd
 import anthropic
-from data_generation.utils import load_parquet, save_parquet, save_json, display_parquet_info
 from anthropic import BadRequestError
 import tiktoken
 import argparse
@@ -75,7 +75,24 @@ async def add_to_cache(db, original_code, generated_content):
                      (original_code, generated_content))
     await db.commit()
 
+def load_parquet(file_path):
+    """Load a Parquet file and return a DataFrame with necessary columns."""
+    df = pq.read_table(file_path).to_pandas()
+    if 'Content' in df.columns:
+        df = df.rename(columns={'Content': 'original_code'})
+    for column in ['update_snippet', 'final_code', 'error']:
+        if column not in df.columns:
+            df[column] = pd.NA
+    return df
 
+def display_parquet_info(df):
+    """Display information about the Parquet file."""
+    print("Parquet File Information:")
+    print(f"Number of files: {len(df)}")
+    print("\nSchema:")
+    print(df.dtypes)
+    print("\nFirst few rows:")
+    print(df[['File Name']].head())
 
 async def generate_update(db, original_code):
     """Generate update snippet and final code using Anthropic API or cache."""
@@ -156,7 +173,13 @@ def update_token_count_json(input_tokens, output_tokens):
         json.dump(data, f, indent=2)
     print(f"Token counts updated in {json_file}")
 
+def save_parquet(df, parquet_file):
+    df.to_parquet(parquet_file, index=False)
+    print(f"Updated Parquet file saved to {parquet_file}")
 
+def save_json(df, json_file):
+    df.to_json(json_file, orient='records', indent=2)
+    print(f"JSON file saved to {json_file}")
 
 async def main(parquet_file, test_mode=False, should_clear_cache=False):
     global input_tokens, output_tokens

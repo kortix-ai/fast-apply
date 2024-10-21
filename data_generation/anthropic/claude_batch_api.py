@@ -1,5 +1,6 @@
 import os
 import aiosqlite
+import pyarrow.parquet as pq
 import pandas as pd
 import anthropic
 from anthropic import BadRequestError
@@ -9,12 +10,13 @@ import tiktoken
 import argparse
 import asyncio
 import json
-import random
 from dotenv import load_dotenv
 from prompt_template import ONLY_UPDATE_PROMPT, GOAL
 from tqdm.asyncio import tqdm
 from aiolimiter import AsyncLimiter
-from data_generation.utils import load_parquet, save_parquet, save_json, display_parquet_info
+import sys
+import random
+from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
@@ -79,6 +81,28 @@ async def add_to_cache(db, original_code, generated_content):
                      (original_code, generated_content))
     await db.commit()
 
+def load_parquet(file_path):
+    """Load a Parquet file and return a DataFrame with necessary columns."""
+    df = pq.read_table(file_path).to_pandas()
+    if 'Content' in df.columns:
+        df = df.rename(columns={'Content': 'original_code'})
+    for column in ['update_snippet', 'final_code', 'error']:
+        if column not in df.columns:
+            df[column] = pd.NA
+    return df
+
+def display_parquet_info(df):
+    """Display information about the Parquet file."""
+    print("Parquet File Information:")
+    print(f"Number of files: {len(df)}")
+    print("\nSchema:")
+    print(df.dtypes)
+    print("\nFirst few rows:")
+    if 'File Name' in df.columns:
+        print(df[['File Name']].head())
+    else:
+        print(df.head())
+
 def update_token_count_json(input_tokens, output_tokens):
     """Update or create a JSON file with token counts."""
     json_file = '.token_counts.json'
@@ -94,6 +118,14 @@ def update_token_count_json(input_tokens, output_tokens):
     with open(json_file, 'w') as f:
         json.dump(data, f, indent=2)
     print(f"Token counts updated in {json_file}")
+
+def save_parquet(df, parquet_file):
+    df.to_parquet(parquet_file, index=False)
+    print(f"Updated Parquet file saved to {parquet_file}")
+
+def save_json(df, json_file):
+    df.to_json(json_file, orient='records', indent=2)
+    print(f"JSON file saved to {json_file}")
 
 async def process_cached_result(idx, cached_content, df):
     """Process cached result and update DataFrame."""

@@ -11,8 +11,40 @@ import os
 from pathlib import Path
 import tiktoken
 import math
-from data_generation.utils import calculate_cost, load_data, count_tokens
 
+def calculate_cost(input_tokens: int, max_tokens: int) -> float:
+    """
+    Calculates the cost based on input tokens and max tokens.
+    
+    Args:
+        input_tokens (int): Total number of input tokens.
+        max_tokens (int): Total number of max tokens.
+    
+    Returns:
+        float: Calculated cost in USD.
+    """
+    input_cost = (input_tokens / 1_000_000) * 1.25
+    output_cost = (max_tokens / 1_000_000) * 5
+    return input_cost + output_cost
+
+def load_data(file_path: str, n: int = None) -> pd.DataFrame:
+    """
+    Loads data from a Parquet or CSV file into a DataFrame.
+    
+    Args:
+        file_path (str): Path to the input data file.
+    
+    Returns:
+        pd.DataFrame: Loaded DataFrame.
+    """
+    if file_path.endswith('.parquet'):
+        df = pd.read_parquet(file_path)
+    elif file_path.endswith('.csv'):
+        df = pd.read_csv(file_path)
+    else:
+        raise ValueError("Unsupported file format. Please provide a .parquet or .csv file.")
+    
+    return df.head(n) if n is not None else df
 
 def prepare_batch_requests(df: pd.DataFrame, prompt_func, model: str, batch_limit: int = 90000) -> tuple:
     """
@@ -81,6 +113,24 @@ def prepare_batch_requests(df: pd.DataFrame, prompt_func, model: str, batch_limi
     print(f"Total max tokens: {total_max_tokens}")
     return all_batches, total_input_tokens, total_max_tokens
 
+def count_tokens(text: str, model: str) -> int:
+    """
+    Counts the number of tokens in the given text using the specified model's tokenizer.
+    
+    Args:
+        text (str): The text to tokenize.
+        model (str): The name of the model to use for tokenization.
+    
+    Returns:
+        int: The number of tokens in the text.
+    """
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        print(f"Warning: model {model} not found. Using cl100k_base encoding.")
+        encoding = tiktoken.get_encoding("cl100k_base")
+    
+    return len(encoding.encode(text))
 
 def write_jsonl(requests: list, output_dir: str, batch_number: int = 1):
     """
