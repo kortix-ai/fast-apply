@@ -129,13 +129,23 @@ This fine-tuning process optimizes the models for our specific code editing task
 
 [See the instructions here](fireworks/README.md)
 
-# Evaluation 
+   **Inference script:** `tests_evaluate/fireworks/test_fireworks.py`
 
-| Metric                    | 7B Model | 1.5B Model |
-|---------------------------|----------|------------|
-| Accuracy Score            | 90.00%   | 79.00%     |
-| Average Total Diff        | 7.87     | 1.67       |
-| Average Added Lines       | 6.63     | 0.52       |
-| Average Removed Lines     | 1.24     | 1.15       |
+# Contribute
+
+We welcome contributions to improve Fast Apply! Here are some ways you can help:
+
+1. **More data**: The current model uses mostly TypeScript open-source code. Adding other languages could help avoid overfitting.
+
+2. **Bug Reports**: If you encounter any issues, please open a GitHub issue with a detailed description.
+
+3. **Feature Requests**: Have ideas for new features? Open an issue to discuss them.
+
+4. **Code Contributions**:
+   - Fork the repository
+   - Create a new branch for your feature or bug fix
+   - Submit a pull request with a clear description of your changes
+
+Please ensure your contributions adhere to our code of conduct and coding standards.
 
 Happy Coding!
