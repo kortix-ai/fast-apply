@@ -1,101 +1,39 @@
-# Fast Apply: Fine-Tune Llama3 Models
+# Fast Apply: Pipeline for Data Generation & Fine-Tuning Qwen2.5 Coder Models
 
-Welcome to **Fast Apply**, a repository dedicated to fine-tuning Llama3 models for enhanced performance and adaptability. This project leverages synthetic data generation, efficient training pipelines, robust testing methodologies, and streamlined model deployment processes to deliver powerful language models tailored to your needs.
+Kortix Fast Apply are models dedicated to perform instant apply with produce full file edit.
 
-## Table of Contents
-
-1. [Prerequisites](#prerequisites)
-2. [Installation](#installation)
-3. [Repository Structure](#repository-structure)
-4. [Data Generation Pipeline](#data-generation-pipeline)
-    - [Using OpenAI's API](#using-openais-api)
-    - [Using Anthropic's API](#using-anthropics-api)
-5. [Fine-Tuning the Model](#fine-tuning-the-model)
-6. [Model Creation](#model-creation)
-7. [Model Deployment](#model-deployment)
-8. [Testing the Deployed Model](#testing-the-deployed-model)
-    - [Inference Test Set Runner](#inference-test-set-runner)
-    - [Fireworks Inference Test Set Runner](#fireworks-inference-test-set-runner)
-    - [Fireworks Throughput Tester](#fireworks-throughput-tester)
-    - [Evaluation Script](#evaluation-script)
-
-## Prerequisites
-
-Before getting started, ensure you have the following installed on your system:
-
-- **Python 3.8+**
-- **Git**
-- **CUDA-compatible GPU** (for training and inference)
-- **[RunPod](https://www.runpod.ai/)** account (for serverless model testing)
-
-Additionally, to utilize the OpenAI and Anthropic data generation pipelines, you need:
-
-- **OpenAI API Key**
-- **Anthropic API Key**
-
-Ensure you have these API keys ready and set as environment variables.
-
-## Repository Structure
+To understand what it does, here's the prompt for inference : 
 
 ```
-.
-├── Finetune_Fast-Apply-Llama3-1B-Instruct.ipynb
-├── Finetune_Fast-Apply-Llama3-8B-Instruct.ipynb
-├── README.md
-├── data_generation/
-│   ├── anthropic/
-│   ├── openai/
-│   └── repo_to_dataset.py
-├── download_model.ipynb
-├── fireworks/
-│   ├── create_model.sh
-│   ├── deploy.sh
-│   ├── fine-tune/
-│   └── deploy.sh
-├── html_viewer/
-├── requirements.txt
-├── tests_evaluate/
-│   ├── evaluate.py
-│   ├── fireworks/
-│   │   ├── fireworks_inference_testset_runner.py
-│   │   └── test_fireworks.py
-│   └── single_test_prompt.py
-├── utils/
-│   ├── merge_parquet.py
-│   └── parquet_to_jsonl.py
+<|im_start|>user
+Merge all changes from the <update> snippet into the <code> below.
+- Preserve the code's structure, order, comments, and indentation exactly.
+- Output only the updated code, enclosed within <updated-code> and </updated-code> tags.
+- Do not include any additional text, explanations, placeholders, ellipses, or code fences.
+
+<code>{original_code}</code>
+
+<update>{update_snippet}</update>
+
+Provide the complete updated code."""
 ```
 
-### Key Files and Directories
+Model output :
+```
+<|im_start|>assistant
+<updated-code>[Full-complete updated file]</updatedcode>
+```
 
-- **`Finetune_Fast-Apply-Llama3-1B-Instruct.ipynb`**: Jupyter notebook for fine-tuning the Llama3 1B model.
-- **`Finetune_Fast-Apply-Llama3-8B-Instruct.ipynb`**: Jupyter notebook for fine-tuning the Llama3 8B model.
-- **`download_model.ipynb`**: Notebook to download the pre-trained model weights.
-- **`data_generation/`**: Contains scripts and modules for data generation using OpenAI and Anthropic APIs.
-  - **`repo_to_dataset.py`**: Converts repository data into a structured dataset.
-  - **Subdirectories**:
-    - **`anthropic/`**: Scripts for Anthropic data generation.
-    - **`openai/`**: Scripts for OpenAI data generation.
-- **`fireworks/`**: Automation scripts for model creation, deployment, and fine-tuning.
-  - **`create_model.sh`**: Shell script to create new model instances using `firectl`.
-  - **`deploy.sh`**: Shell script to deploy models using `firectl`.
-  - **`fine-tune/`**: Scripts related to fine-tuning.
-- **`html_viewer/`**: Contains HTML files for viewing diffs and generated JSON data.
-- **`requirements.txt`**: Lists all Python dependencies.
-- **`tests_evaluate/`**: Contains scripts and modules for evaluating the model.
-  - **`evaluate.py`**: Script to evaluate the differences between generated code and final code.
-  - **`fireworks/`**:
-    - **`fireworks_inference_testset_runner.py`**: Script to run inference tests on a given test set using the Fireworks API.
-    - **`test_fireworks.py`**: Script to test the throughput and performance of deployed Fireworks models.
-- **`utils/`**: Utility scripts for data processing and management.
-  - **`merge_parquet.py`**: Merges multiple Parquet files into one.
-  - **`parquet_to_jsonl.py`**: Converts Parquet datasets to JSONL format.
+We choose small model like 7B and 1.5B for fast inference speed, which adapts to the task of instant apply. 
+
 
 ## Data Generation Pipeline
 
-Generating high-quality synthetic data is crucial for training robust models. The pipeline involves the following steps:
+Generating high-quality synthetic data is crucial for training robust models. To adapt with our use case, we choose open-source nextjs-like projects to serve as `original-code`, then use `Claude Sonnet 3.5` (70%) and `GPT-4o` (30%) to generate `update-snippet` and `final-updated-code`.
 
-1. **Clone Open-Source Repository**
+The pipeline involves the following steps:
 
+1. **Clone Open-Source Repositories**
    ```bash
    git clone --depth 1 https://github.com/your/repo.git data/repo
    ```
