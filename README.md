@@ -146,6 +146,11 @@ We welcome contributions to improve Fast Apply! Here are some ways you can help:
    - Create a new branch for your feature or bug fix
    - Submit a pull request with a clear description of your changes
 
+5. **Fine-tuning Improvements**:
+   - Share your findings on model performance improvements
+
+Please ensure your contributions adhere to our code of conduct and coding standards.
+
 Please ensure your contributions adhere to our code of conduct and coding standards.
 
 Happy Coding!
