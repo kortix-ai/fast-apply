@@ -7,12 +7,10 @@ They achieve high throughput when deployed on fast providers like Fireworks whil
 - ~ `340 tok/s` for 1.5B model
 - ~ `150 tok/s` for 7B model
 
-Open models:
-- https://huggingface.co/Kortix/FastApply-7B-v1.0
-- https://huggingface.co/Kortix/FastApply-1.5B-v1.0
-
-Open Dataset: 
-- https://huggingface.co/datasets/Kortix/FastApply-dataset-v1.0
+Models and dataset are available on HuggingFace:
+- [FastApply-7B-v1.0](https://huggingface.co/Kortix/FastApply-7B-v1.0)
+- [FastApply-1.5B-v1.0](https://huggingface.co/Kortix/FastApply-1.5B-v1.0)
+- [FastApply-dataset-v1.0](https://huggingface.co/datasets/Kortix/FastApply-dataset-v1.0)
 
 
 The inference prompt structure:
@@ -133,6 +131,11 @@ This fine-tuning process optimizes the models for our specific code editing task
 
 # Evaluation 
 
-
+| Metric                    | 7B Model | 1.5B Model |
+|---------------------------|----------|------------|
+| Accuracy Score            | 90.00%   | 79.00%     |
+| Average Total Diff        | 7.87     | 1.67       |
+| Average Added Lines       | 6.63     | 0.52       |
+| Average Removed Lines     | 1.24     | 1.15       |
 
 Happy Coding!
