@@ -31,7 +31,7 @@ Provide the complete updated code."""
 Model output :
 ```
 <|im_start|>assistant
-<updated-code>[Full-complete updated file]</updatedcode>
+<updated-code>[Full-complete updated file]</updated-code>
 ```
 
 We chose smaller models (7B and 1.5B) for fast inference speed, suitable for instant apply tasks. 
