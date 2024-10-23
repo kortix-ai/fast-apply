@@ -150,6 +150,7 @@ Due to these challenges, simple file comparison isn't always sufficient. Alterna
 
 Here are our initial development benchmarks (take with a grain of salt):
 
+![image](https://github.com/user-attachments/assets/4e00d3e6-60e1-4c6e-8ef9-b2151bfde231)
 
 We plan to conduct more comprehensive benchmarks using DeepSeek or similar tools.
 
