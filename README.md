@@ -136,6 +136,28 @@ This fine-tuning process optimizes the models for our specific code editing task
 
    **Inference script:** `tests_evaluate/fireworks/test_fireworks.py`
 
+# Evaluation
+
+Evaluating code transformations isn't trivial due to several factors:
+
+1. **Insert Flexibility**: Models can insert code in different locations since imports and functions are independent.
+
+2. **Function Ordering**: While not ideal, models may change function placement while maintaining correct and bug-free code.
+
+Due to these challenges, simple file comparison isn't always sufficient. Alternative approaches like line-by-line comparison with sorting can be used, though they have their own limitations.
+
+## Preliminary Benchmarks
+
+Here are our initial development benchmarks (take with a grain of salt):
+
+
+We plan to conduct more comprehensive benchmarks using DeepSeek or similar tools.
+
+## Model Selection Suggestion
+
+- Start with the 1.5B model - it shows impressive performance for its size
+- If the 1.5B model doesn't meet your needs, try the 7B model
+
 # Contribute
 
 We welcome contributions to improve Fast Apply! Here are some ways you can help:

@@ -82,7 +82,7 @@ To use the model, you can load it using the Hugging Face Transformers library:
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-model = AutoModelForCausalLM.from_pretrained("Kortix/FastApply-7B-v1.0")
+model = AutoModelForCausalLM.from_pretrained("Kortix/FastApply-7B-v1.0", device_map="auto")
 tokenizer = AutoTokenizer.from_pretrained("Kortix/FastApply-7B-v1.0")
 
 # Prepare your input following the prompt structure mentioned above
@@ -105,15 +105,15 @@ Provide the complete updated code.<|im_end|>
 input_text = input_text.format(
     original_code=original_code,
     update_snippet=update_snippet,
-).strip() + tokenizer.eos_token 
+).strip() 
 
 # Generate the response
 input_ids = tokenizer.encode(input_text, return_tensors="pt")
-output = model.generate(input_ids, max_length=8192)
-response = tokenizer.decode(output[0])
+output = model.generate(input_ids, max_length=8192,)
+
+response = tokenizer.decode(output[0][len(input_ids[0]):])
+print(response)
 
 # Extract the updated code from the response
 updated_code = response.split("<updated-code>")[1].split("</updated-code>")[0]
-
-print(updated_code)
 ```
