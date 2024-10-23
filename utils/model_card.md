@@ -30,7 +30,7 @@ tags:
 
 ### Model Description
 
-FastApply-7B-v1.0 is a 7B model designed for instant code application, producing full file edits to power [SoftGen AI](https://softgen.ai/). 
+FastApply-7B-v1.0 is a 7B model designed for instant code application, producing full file edits to power [SoftGen AI](https://softgen.ai/).    
 It is part of the Fast Apply pipeline for data generation and fine-tuning Qwen2.5 Coder models.
 
 The model achieves high throughput when deployed on fast providers like Fireworks while maintaining high edit accuracy, with a speed of approximately 150 tokens/second.
@@ -85,7 +85,9 @@ model = AutoModelForCausalLM.from_pretrained("Kortix/FastApply-7B-v1.0")
 tokenizer = AutoTokenizer.from_pretrained("Kortix/FastApply-7B-v1.0")
 
 # Prepare your input following the prompt structure mentioned above
-input_text = """<|im_start|>user
+input_text = """<|im_start|>system
+You are a coding assistant that helps merge code updates, ensuring every modification is fully integrated.<|im_end|>
+<|im_start|>user
 Merge all changes from the <update> snippet into the <code> below.
 - Preserve the code's structure, order, comments, and indentation exactly.
 - Output only the updated code, enclosed within <updated-code> and </updated-code> tags.
@@ -95,7 +97,9 @@ Merge all changes from the <update> snippet into the <code> below.
 
 <update>{update_snippet}</update>
 
-Provide the complete updated code."""
+Provide the complete updated code.<|im_end|>
+<|im_start|>assistant
+"""
 
 input_text = input_text.format(
     original_code=original_code,

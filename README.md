@@ -15,6 +15,9 @@ Models and dataset are available on HuggingFace:
 
 The inference prompt structure:
 ```
+<|im_start|>system
+You are a coding assistant that helps merge code updates, ensuring every modification is fully integrated.<|im_end|>
+
 <|im_start|>user
 Merge all changes from the <update> snippet into the <code> below.
 - Preserve the code's structure, order, comments, and indentation exactly.
@@ -25,7 +28,10 @@ Merge all changes from the <update> snippet into the <code> below.
 
 <update>{update_snippet}</update>
 
-Provide the complete updated code."""
+Provide the complete updated code.<|im_end|>
+
+<|im_start|>assistant
+"""
 ```
 
 Model output :
