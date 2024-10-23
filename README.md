@@ -36,7 +36,6 @@ Provide the complete updated code.<|im_end|>
 
 Model output :
 ```
-<|im_start|>assistant
 <updated-code>[Full-complete updated file]</updated-code>
 ```
 

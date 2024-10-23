@@ -59,13 +59,14 @@ Merge all changes from the <update> snippet into the <code> below.
 
 <update>{update_snippet}</update>
 
-Provide the complete updated code."""
+Provide the complete updated code.
+
+<|im_start|>assistant
 ```
 
 The model's output is structured as:
 
 ```
-<|im_start|>assistant
 <updated-code>[Full-complete updated file]</updated-code>
 ```
 
