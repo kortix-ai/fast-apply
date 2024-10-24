@@ -1,0 +1,69 @@
+<|im_start|>system
+You are a coding assistant that helps merge code updates, ensuring every modification is fully integrated.<|im_end|>
+<|im_start|>user
+Merge all changes from the <update> snippet into the <code> below.
+- Preserve the code's structure, order, comments, and indentation exactly.
+- Output only the updated code, enclosed within <updated-code> and </updated-code> tags.
+- Do not include any additional text, explanations, placeholders, ellipses, or code fences.
+
+<code>import React from 'react';
+import { Loader } from 'lucide-react';
+
+interface ButtonProps {
+  text: string;
+  onClick?: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+  icon?: React.ReactNode;
+}
+
+const Button: React.FC<ButtonProps> = ({
+  text,
+  onClick,
+  loading = false,
+  disabled = false,
+  icon
+}) => (
+  <button
+    className="bg-blue-500 text-white p-2 rounded flex items-center gap-2"
+    onClick={onClick}
+    disabled={disabled || loading}
+  >
+    {loading ? <Loader className="animate-spin" /> : icon}
+    {text}
+  </button>
+);
+
+export default Button;
+</code>
+
+<update>interface ButtonProps {
+  variant?: 'primary' | 'secondary' | 'danger';
+  size?: 'small' | 'medium' | 'large';
+  // ... other props
+}
+
+const Button: React.FC<ButtonProps> = ({
+  variant = 'primary',
+  size = 'medium',
+  // ... other props
+}) => (
+  <button
+    className={`flex items-center gap-2 rounded ${
+      size === 'small' ? 'p-1 text-sm' :
+      size === 'large' ? 'p-3 text-lg' :
+      'p-2 text-md'
+    } ${
+      variant === 'primary' ? 'bg-blue-500 text-white' :
+      variant === 'secondary' ? 'bg-gray-500 text-white' :
+      'bg-red-500 text-white'
+    }`}
+    // ... other attributes
+  >
+    // ... existing code ...
+  </button>
+);
+</update>
+
+Provide the complete updated code.<|im_end|>
+<|im_start|>assistant
