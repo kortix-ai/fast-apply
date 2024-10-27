@@ -4,7 +4,7 @@ import argparse
 import statistics
 import sys
 import os
-import openai
+from openai import OpenAI
 
 def count_diff_lines(S1, S2):
     """
@@ -75,7 +75,7 @@ def parse_generated_text(text, use_simple_template=False):
         print(f"Error parsing generated text: {e}", file=sys.stderr)
         return text.strip()
 
-def calculate_diff(data, limit=None, use_simple_template=False, deepseek_activated=False):
+def calculate_diff(data, limit=None, use_simple_template=False, deepseek_activated=False, client=None):
     """
     Calculate the diff between final_code and generated_text for each entry.
     Additionally, calculate diffs based on sorted lines for an alternative accuracy metric.
@@ -119,7 +119,7 @@ def calculate_diff(data, limit=None, use_simple_template=False, deepseek_activat
 
         # Add DeepSeek evaluation if activated and there are differences
         if total_diff > 0 and deepseek_activated:
-            deepseek_result = evaluate_with_deepseek(entry)
+            deepseek_result = evaluate_with_deepseek(entry, client)
             if deepseek_result:
                 result['deepseek_score'] = deepseek_result.get('score')
                 result['deepseek_analysis'] = deepseek_result.get('analysis')
@@ -143,7 +143,7 @@ def calculate_accuracy(results, key='total_diff'):
     total_examples = len(results)
     return fully_corrected / total_examples if total_examples > 0 else 0
 
-def evaluate_with_deepseek(entry):
+def evaluate_with_deepseek(entry, client):
     """
     Evaluate mismatched code using DeepSeek API.
     
@@ -185,13 +185,13 @@ Do not include any other text.
     ]
 
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="deepseek-chat",
             messages=messages,
             temperature=0,
-            max_tokens=1000
+            max_tokens=2000
         )
-        content = response['choices'][0]['message']['content']
+        content = response.choices[0].message.content
 
         # Parse the content to extract <score> and <analysis>
         score = None
@@ -289,11 +289,14 @@ def main():
     all_results = {}
     # Configure DeepSeek if enabled
     if args.deepseek:
-        openai.api_key = os.environ.get("DEEPSEEK_API_KEY")
-        if not openai.api_key:
+        api_key = os.environ.get("DEEPSEEK_API_KEY")
+        if not api_key:
             print("Error: DEEPSEEK_API_KEY environment variable not set", file=sys.stderr)
             sys.exit(1)
-        openai.api_base = "https://api.deepseek.com/beta"
+        client = OpenAI(
+            api_key=api_key,
+            base_url="https://api.deepseek.com/beta"
+        )
 
     for input_file in args.input_files:
         try:
@@ -304,7 +307,7 @@ def main():
             continue
 
         results = calculate_diff(data, limit=args.n, use_simple_template=args.simple, 
-                               deepseek_activated=args.deepseek)
+                               deepseek_activated=args.deepseek, client=client if args.deepseek else None)
         all_results[input_file] = results
 
     if args.output_file:
