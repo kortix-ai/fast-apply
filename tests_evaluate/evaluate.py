@@ -3,6 +3,8 @@ import difflib
 import argparse
 import statistics
 import sys
+import os
+import openai
 
 def count_diff_lines(S1, S2):
     """
@@ -73,7 +75,7 @@ def parse_generated_text(text, use_simple_template=False):
         print(f"Error parsing generated text: {e}", file=sys.stderr)
         return text.strip()
 
-def calculate_diff(data, limit=None, use_simple_template=False):
+def calculate_diff(data, limit=None, use_simple_template=False, deepseek_activated=False):
     """
     Calculate the diff between final_code and generated_text for each entry.
     Additionally, calculate diffs based on sorted lines for an alternative accuracy metric.
@@ -105,15 +107,24 @@ def calculate_diff(data, limit=None, use_simple_template=False):
 
         total_diff_sorted, added_sorted, removed_sorted = count_diff_lines(final_text_sorted, generated_text_sorted)
 
-        # Append both results
-        results.append({
+        # Create result dictionary
+        result = {
             'total_diff': total_diff,
             'added_lines': added,
             'removed_lines': removed,
             'total_diff_sorted': total_diff_sorted,
             'added_lines_sorted': added_sorted,
             'removed_lines_sorted': removed_sorted
-        })
+        }
+
+        # Add DeepSeek evaluation if activated and there are differences
+        if total_diff > 0 and deepseek_activated:
+            deepseek_result = evaluate_with_deepseek(entry)
+            if deepseek_result:
+                result['deepseek_score'] = deepseek_result.get('score')
+                result['deepseek_analysis'] = deepseek_result.get('analysis')
+
+        results.append(result)
 
     return results
 
@@ -131,6 +142,68 @@ def calculate_accuracy(results, key='total_diff'):
     fully_corrected = sum(1 for r in results if r.get(key, 0) == 0)
     total_examples = len(results)
     return fully_corrected / total_examples if total_examples > 0 else 0
+
+def evaluate_with_deepseek(entry):
+    """
+    Evaluate mismatched code using DeepSeek API.
+    
+    Parameters:
+    - entry: Dictionary containing original_code, update_snippet, and final_code
+    
+    Returns:
+    - Dictionary containing score and analysis from DeepSeek
+    """
+    original_code = entry.get('original_code', '')
+    update_snippet = entry.get('update_snippet', '')
+    final_code = entry.get('final_code', '')
+
+    prompt = """
+You are an AI code evaluator. You will be provided with:
+
+- Original code
+- Update snippet
+- Final code
+
+Your task is to:
+
+1. Analyze whether the final code correctly applies the update snippet to the original code.
+2. Check for any bugs or issues in the final code.
+3. Provide a brief analysis of any issues found.
+4. Give a score between 0 and 1 (1 means the final code correctly applies the update snippet and is bug-free).
+
+Output:
+
+- Your analysis enclosed within <analysis></analysis> tags.
+- The score enclosed within <score></score> tags.
+
+Do not include any other text.
+""".strip()
+
+    messages = [
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": f"<original_code>\n{original_code}\n</original_code>\n<update_snippet>\n{update_snippet}\n</update_snippet>\n<final_code>\n{final_code}\n</final_code>"}
+    ]
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="deepseek-chat",
+            messages=messages,
+            temperature=0,
+            max_tokens=1000
+        )
+        content = response['choices'][0]['message']['content']
+
+        # Parse the content to extract <score> and <analysis>
+        score = None
+        analysis = None
+        if '<score>' in content and '</score>' in content:
+            score = float(content.split('<score>')[1].split('</score>')[0].strip())
+        if '<analysis>' in content and '</analysis>' in content:
+            analysis = content.split('<analysis>')[1].split('</analysis>')[0].strip()
+        return {'score': score, 'analysis': analysis}
+    except Exception as e:
+        print(f"Error during DeepSeek evaluation: {e}", file=sys.stderr)
+        return None
 
 def print_statistics(file_name, results):
     """
@@ -197,15 +270,31 @@ def print_statistics(file_name, results):
 
     print(f"  Sorted Accuracy score: {accuracy_sorted:.2%}")
 
+    # Print DeepSeek evaluation results if available
+    deepseek_scores = [r.get('deepseek_score') for r in results if 'deepseek_score' in r]
+    if deepseek_scores:
+        print("\nDeepSeek Evaluation Results:")
+        print(f"  Average DeepSeek score: {statistics.mean(deepseek_scores):.2f}")
+        print(f"  Median DeepSeek score: {statistics.median(deepseek_scores):.2f}")
+
 def main():
     parser = argparse.ArgumentParser(description="Calculate diff between final_code and generated_text.")
     parser.add_argument("input_files", nargs='+', help="Paths to the input JSON files")
     parser.add_argument("--output_file", help="Path to the output JSON file (optional)")
     parser.add_argument("-n", type=int, help="Number of examples to process (optional)")
     parser.add_argument("--simple", action="store_true", help="Use simple template without tags")
+    parser.add_argument("--deepseek", action="store_true", help="Use DeepSeek for evaluation of mismatched code")
     args = parser.parse_args()
 
     all_results = {}
+    # Configure DeepSeek if enabled
+    if args.deepseek:
+        openai.api_key = os.environ.get("DEEPSEEK_API_KEY")
+        if not openai.api_key:
+            print("Error: DEEPSEEK_API_KEY environment variable not set", file=sys.stderr)
+            sys.exit(1)
+        openai.api_base = "https://api.deepseek.com/beta"
+
     for input_file in args.input_files:
         try:
             with open(input_file, 'r') as f:
@@ -214,7 +303,8 @@ def main():
             print(f"Error reading {input_file}: {e}", file=sys.stderr)
             continue
 
-        results = calculate_diff(data, limit=args.n, use_simple_template=args.simple)
+        results = calculate_diff(data, limit=args.n, use_simple_template=args.simple, 
+                               deepseek_activated=args.deepseek)
         all_results[input_file] = results
 
     if args.output_file:
