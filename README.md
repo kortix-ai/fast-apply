@@ -144,15 +144,13 @@ Evaluating code transformations isn't trivial due to several factors:
 
 2. **Function Ordering**: While not ideal, models may change function placement while maintaining correct and bug-free code.
 
-Due to these challenges, simple file comparison isn't always sufficient. Alternative approaches like line-by-line comparison with sorting can be used, though they have their own limitations.
+Due to these challenges, simple file comparison isn't always sufficient. Alternative approaches like line-by-line comparison with sorting can be used, though they have their own limitations. The fiable way is use a big model to evaluate like Deepseek. 
 
-## Preliminary Benchmarks
+## Benchmarks
 
-Here are our initial development benchmarks (take with a grain of salt):
+Here are our development benchmarks for 100 test examples:
 
-![image](https://github.com/user-attachments/assets/4e00d3e6-60e1-4c6e-8ef9-b2151bfde231)
-
-We plan to conduct more comprehensive benchmarks using DeepSeek or similar tools.
+![image](https://github.com/user-attachments/assets/6a93809a-4c4f-47de-9d48-d72256bf6c5b)
 
 ## Model Selection Suggestion
 
