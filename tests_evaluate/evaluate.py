@@ -148,7 +148,7 @@ def calculate_accuracy(results, key='total_diff'):
     total_examples = len(results)
     return fully_corrected / total_examples if total_examples > 0 else 0
 
-async def evaluate_with_deepseek(entry, client):
+async def evaluate_with_deepseek(entry, client, log_enabled=False, query_index=None):
     """
     Evaluate mismatched code using DeepSeek API.
     
@@ -215,7 +215,28 @@ Do not include any other text.
                     score = float(content.split('<score>')[1].split('</score>')[0].strip())
                 if '<analysis>' in content and '</analysis>' in content:
                     analysis = content.split('<analysis>')[1].split('</analysis>')[0].strip()
-                return {'score': score, 'analysis': analysis}
+                result = {'score': score, 'analysis': analysis}
+                
+                # Save log if enabled
+                if log_enabled and query_index is not None:
+                    os.makedirs('log', exist_ok=True)
+                    log_file = f'log/deepseek_query_{query_index}.json'
+                    log_data = {
+                        'input': {
+                            'original_code': entry.get('original_code', ''),
+                            'update_snippet': entry.get('update_snippet', ''),
+                            'final_code': entry.get('final_code', ''),
+                            'messages': messages
+                        },
+                        'output': {
+                            'raw_response': content,
+                            'parsed_result': result
+                        }
+                    }
+                    with open(log_file, 'w') as f:
+                        json.dump(log_data, f, indent=2)
+                
+                return result
 
         except asyncio.TimeoutError:
             print("Error: Timeout during DeepSeek evaluation")
@@ -316,6 +337,7 @@ async def main():
     parser.add_argument("-n", type=int, help="Number of examples to process (optional)")
     parser.add_argument("--simple", action="store_true", help="Use simple template without tags")
     parser.add_argument("--deepseek", action="store_true", help="Use DeepSeek for evaluation of mismatched code")
+    parser.add_argument("--log", action="store_true", help="Save DeepSeek queries and responses to log/ directory")
     args = parser.parse_args()
 
     all_results = {}
@@ -359,7 +381,9 @@ async def main():
                             'update_snippet': data[idx].get('update_snippet', ''),
                             'final_code': data[idx].get('final_code', '')
                         },
-                        client
+                        client,
+                        log_enabled=args.log,
+                        query_index=idx
                     ) for idx, _ in mismatched_entries
                 ]
                 
