@@ -4,7 +4,12 @@ import argparse
 import statistics
 import sys
 import os
-from openai import OpenAI
+import asyncio
+from openai import AsyncOpenAI
+from tqdm.asyncio import tqdm
+from aiolimiter import AsyncLimiter
+# Set rate limiter for DeepSeek API
+rate_limiter = AsyncLimiter(120, 60)
 
 def count_diff_lines(S1, S2):
     """
@@ -143,12 +148,13 @@ def calculate_accuracy(results, key='total_diff'):
     total_examples = len(results)
     return fully_corrected / total_examples if total_examples > 0 else 0
 
-def evaluate_with_deepseek(entry, client):
+async def evaluate_with_deepseek(entry, client):
     """
     Evaluate mismatched code using DeepSeek API.
     
     Parameters:
     - entry: Dictionary containing original_code, update_snippet, and final_code
+    - client: AsyncOpenAI client instance
     
     Returns:
     - Dictionary containing score and analysis from DeepSeek
@@ -184,26 +190,45 @@ Do not include any other text.
         {"role": "user", "content": f"<original_code>\n{original_code}\n</original_code>\n<update_snippet>\n{update_snippet}\n</update_snippet>\n<final_code>\n{final_code}\n</final_code>"}
     ]
 
-    try:
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            messages=messages,
-            temperature=0,
-            max_tokens=2000
-        )
-        content = response.choices[0].message.content
+    max_retries = 2
+    attempt = 0
+    backoff_factor = 2
 
-        # Parse the content to extract <score> and <analysis>
-        score = None
-        analysis = None
-        if '<score>' in content and '</score>' in content:
-            score = float(content.split('<score>')[1].split('</score>')[0].strip())
-        if '<analysis>' in content and '</analysis>' in content:
-            analysis = content.split('<analysis>')[1].split('</analysis>')[0].strip()
-        return {'score': score, 'analysis': analysis}
-    except Exception as e:
-        print(f"Error during DeepSeek evaluation: {e}", file=sys.stderr)
-        return None
+    while attempt <= max_retries:
+        try:
+            async with rate_limiter:
+                response = await asyncio.wait_for(
+                    client.chat.completions.create(
+                        model="deepseek-chat",
+                        messages=messages,
+                        temperature=0,
+                        max_tokens=2000
+                    ),
+                    timeout=60
+                )
+                content = response.choices[0].message.content
+
+                # Parse the content to extract <score> and <analysis>
+                score = None
+                analysis = None
+                if '<score>' in content and '</score>' in content:
+                    score = float(content.split('<score>')[1].split('</score>')[0].strip())
+                if '<analysis>' in content and '</analysis>' in content:
+                    analysis = content.split('<analysis>')[1].split('</analysis>')[0].strip()
+                return {'score': score, 'analysis': analysis}
+
+        except asyncio.TimeoutError:
+            print("Error: Timeout during DeepSeek evaluation")
+        except Exception as e:
+            print(f"Error during DeepSeek evaluation: {e}")
+
+        attempt += 1
+        if attempt <= max_retries:
+            wait_time = backoff_factor ** attempt
+            print(f"Retrying in {wait_time} seconds... (Attempt {attempt} of {max_retries})")
+            await asyncio.sleep(wait_time)
+
+    return None
 
 def print_statistics(file_name, results):
     """
@@ -277,7 +302,7 @@ def print_statistics(file_name, results):
         print(f"  Average DeepSeek score: {statistics.mean(deepseek_scores):.2f}")
         print(f"  Median DeepSeek score: {statistics.median(deepseek_scores):.2f}")
 
-def main():
+async def main():
     parser = argparse.ArgumentParser(description="Calculate diff between final_code and generated_text.")
     parser.add_argument("input_files", nargs='+', help="Paths to the input JSON files")
     parser.add_argument("--output_file", help="Path to the output JSON file (optional)")
@@ -287,13 +312,15 @@ def main():
     args = parser.parse_args()
 
     all_results = {}
+    client = None
+
     # Configure DeepSeek if enabled
     if args.deepseek:
         api_key = os.environ.get("DEEPSEEK_API_KEY")
         if not api_key:
-            print("Error: DEEPSEEK_API_KEY environment variable not set", file=sys.stderr)
+            print("Error: DEEPSEEK_API_KEY environment variable not set")
             sys.exit(1)
-        client = OpenAI(
+        client = AsyncOpenAI(
             api_key=api_key,
             base_url="https://api.deepseek.com/beta"
         )
@@ -303,23 +330,59 @@ def main():
             with open(input_file, 'r') as f:
                 data = json.load(f)
         except Exception as e:
-            print(f"Error reading {input_file}: {e}", file=sys.stderr)
+            print(f"Error reading {input_file}: {e}")
             continue
 
-        results = calculate_diff(data, limit=args.n, use_simple_template=args.simple, 
-                               deepseek_activated=args.deepseek, client=client if args.deepseek else None)
+        # First calculate diffs
+        results = calculate_diff(data, limit=args.n, use_simple_template=args.simple)
+        
+        # Then process DeepSeek evaluations if enabled
+        if args.deepseek and client:
+            mismatched_entries = [
+                (i, entry) for i, entry in enumerate(results) 
+                if entry['total_diff'] > 0
+            ]
+            
+            if mismatched_entries:
+                print(f"Processing {len(mismatched_entries)} mismatched entries with DeepSeek")
+                tasks = [
+                    evaluate_with_deepseek(
+                        {
+                            'original_code': data[idx].get('original_code', ''),
+                            'update_snippet': data[idx].get('update_snippet', ''),
+                            'final_code': data[idx].get('final_code', '')
+                        },
+                        client
+                    ) for idx, _ in mismatched_entries
+                ]
+                
+                deepseek_results = []
+                for future in tqdm(
+                    asyncio.as_completed(tasks),
+                    total=len(tasks),
+                    desc="Evaluating with DeepSeek"
+                ):
+                    result = await future
+                    deepseek_results.append(result)
+                
+                # Update results with DeepSeek evaluations
+                for (idx, _), deepseek_result in zip(mismatched_entries, deepseek_results):
+                    if deepseek_result:
+                        results[idx]['deepseek_score'] = deepseek_result.get('score')
+                        results[idx]['deepseek_analysis'] = deepseek_result.get('analysis')
+
         all_results[input_file] = results
 
     if args.output_file:
         try:
             with open(args.output_file, 'w') as f:
                 json.dump(all_results, f, indent=2)
-            print(f"\nDiff results saved to {args.output_file}")
+            print(f"Diff results saved to {args.output_file}")
         except Exception as e:
-            print(f"Error writing to {args.output_file}: {e}", file=sys.stderr)
+            print(f"Error writing to {args.output_file}: {e}")
 
     for input_file, results in all_results.items():
         print_statistics(input_file, results)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
