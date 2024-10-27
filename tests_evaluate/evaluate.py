@@ -301,6 +301,13 @@ def print_statistics(file_name, results):
         print("\nDeepSeek Evaluation Results:")
         print(f"  Average DeepSeek score: {statistics.mean(deepseek_scores):.2f}")
         print(f"  Median DeepSeek score: {statistics.median(deepseek_scores):.2f}")
+        
+        # Calculate final DeepSeek Accuracy score
+        fully_correct = sum(1 for r in results if r.get('total_diff', 0) == 0)
+        deepseek_sum = sum(score for score in deepseek_scores if score is not None)
+        total_samples = len(results)
+        final_deepseek_accuracy = (fully_correct + deepseek_sum) / total_samples
+        print(f"  Final DeepSeek Accuracy score: {final_deepseek_accuracy:.2%}")
 
 async def main():
     parser = argparse.ArgumentParser(description="Calculate diff between final_code and generated_text.")
