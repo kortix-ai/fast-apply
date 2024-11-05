@@ -246,7 +246,7 @@ Do not include any other text.
 
 def create_correlation_plots(data, output_path):
     """
-    Create and save throughput distribution and correlation heatmap plots.
+    Create and save throughput distribution and tokens vs throughput scatter plots.
     
     Parameters:
     - data: List of entries containing throughput and tokens information
@@ -255,6 +255,8 @@ def create_correlation_plots(data, output_path):
     import seaborn as sns
     import matplotlib.pyplot as plt
     import pandas as pd
+    import numpy as np
+    
     # Extract data
     throughputs = [entry.get('throughput') for entry in data if entry.get('throughput') is not None]
     total_tokens = [entry.get('total_tokens') for entry in data if entry.get('total_tokens') is not None]
@@ -272,21 +274,32 @@ def create_correlation_plots(data, output_path):
     plt.savefig(f"{output_path}_distribution.png")
     plt.close()
     
-    # Create correlation heatmap
+    # Create scatter plot with trend line
     df = pd.DataFrame({
         'Throughput': throughputs,
         'Total Tokens': total_tokens
     })
     
-    correlation_matrix = df.corr()
+    plt.figure(figsize=(10, 6))
+    sns.regplot(data=df, x='Total Tokens', y='Throughput', 
+                scatter_kws={'alpha':0.5}, 
+                line_kws={'color': 'red'})
     
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', vmin=-1, vmax=1, center=0)
-    plt.title('Correlation Heatmap: Throughput vs Total Tokens')
-    plt.savefig(f"{output_path}_correlation.png")
+    plt.title('Throughput vs Total Tokens')
+    plt.xlabel('Total Tokens')
+    plt.ylabel('Throughput')
+    
+    # Add correlation coefficient to plot
+    corr = df['Throughput'].corr(df['Total Tokens'])
+    plt.text(0.05, 0.95, f'Correlation: {corr:.2f}', 
+             transform=plt.gca().transAxes, 
+             bbox=dict(facecolor='white', alpha=0.8))
+    
+    plt.tight_layout()
+    plt.savefig(f"{output_path}_trend.png")
     plt.close()
     
-    print(f"Plots saved to {output_path}_distribution.png and {output_path}_correlation.png")
+    print(f"Plots saved to {output_path}_distribution.png and {output_path}_trend.png")
 
 def plot_throughput_distribution(data, output_path):
     """
