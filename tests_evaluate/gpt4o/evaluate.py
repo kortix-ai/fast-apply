@@ -28,7 +28,7 @@ def load_testset(file_path):
     else:
         raise ValueError("Unsupported file format. Please use .parquet or .json")
 
-async def evaluate_with_gpt4(data, limit=None, use_simple_template=False, use_system_user_prompt=False, use_mini=False, use_prediction=False):
+async def evaluate_with_gpt4(data, limit=None, use_simple_template=False, use_system_user_prompt=False, use_mini=True, use_prediction=True):
     """
     Evaluate code updates using OpenAI's GPT-4 model.
     
@@ -37,8 +37,8 @@ async def evaluate_with_gpt4(data, limit=None, use_simple_template=False, use_sy
     - limit: Optional limit on number of entries to process
     - use_simple_template: Boolean indicating whether to use simple template
     - use_system_user_prompt: Boolean indicating whether to use system-user prompt format
-    - use_mini: Boolean indicating whether to use gpt-4o-mini model
-    - use_prediction: Boolean indicating whether to use prediction parameter
+    - use_mini: Boolean indicating whether to use gpt-4o-mini model (default: True)
+    - use_prediction: Boolean indicating whether to use prediction parameter (default: True)
     
     Returns:
     - List of evaluation results
@@ -166,8 +166,8 @@ async def main():
     parser.add_argument("-n", type=int, help="Number of examples to process (optional)")
     parser.add_argument("--simple", action="store_true", help="Use simple template without tags")
     parser.add_argument("--system-user", action="store_true", help="Use system-user prompt format")
-    parser.add_argument("--mini", action="store_true", help="Use gpt-4o-mini model instead of gpt-4o")
-    parser.add_argument("--prediction", action="store_true", help="Use prediction parameter with original code")
+    parser.add_argument("--no-mini", action="store_true", help="Use gpt-4o model instead of gpt-4o-mini")
+    parser.add_argument("--no-prediction", action="store_true", help="Disable prediction parameter")
     args = parser.parse_args()
     
     all_results = {}
@@ -183,8 +183,8 @@ async def main():
                 limit=args.n, 
                 use_simple_template=args.simple,
                 use_system_user_prompt=args.system_user,
-                use_mini=args.mini,
-                use_prediction=args.prediction
+                use_mini=not args.no_mini,
+                use_prediction=not args.no_prediction
             )
             all_results[input_file] = results
             

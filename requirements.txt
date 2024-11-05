@@ -1,3 +1,5 @@
 aiolimiter
 fireworks-ai
 anthropic==0.36.1
+pandas
+pyarrow

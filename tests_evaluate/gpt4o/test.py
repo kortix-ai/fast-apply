@@ -17,7 +17,7 @@ def count_tokens(text):
     encoding = tiktoken.encoding_for_model("gpt-4")
     return len(encoding.encode(text))
 
-def execute_query(client, model, text, original_code=None, use_prediction=False, stream_output=False):
+def execute_query(client, model, text, original_code=None, use_prediction=True, stream_output=False):
     """Execute a query and return the results."""
     start_time = time.time()
     
@@ -27,7 +27,7 @@ def execute_query(client, model, text, original_code=None, use_prediction=False,
         'messages': [{'role': 'user', 'content': text}],
         'max_tokens': MAX_TOKENS,
         'temperature': 0,
-        'stream': not stream_output
+        'stream': stream_output  # Now correctly set based on stream_output
     }
     
     # Add prediction if enabled and original code is provided
@@ -37,15 +37,19 @@ def execute_query(client, model, text, original_code=None, use_prediction=False,
             'content': f'<updated-code>\n{original_code}\n</updated-code>'
         }
     
-    stream = client.chat.completions.create(**api_params)
-
     generated_text = ""
-    for chunk in stream:
-        if chunk.choices[0].delta.content:
-            content = chunk.choices[0].delta.content
-            if stream_output:
-                print(content, end="")
-            generated_text += content
+    if stream_output:
+        # Handle streaming response
+        stream = client.chat.completions.create(**api_params)
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                content = chunk.choices[0].delta.content
+                print(content, end="", flush=True)
+                generated_text += content
+    else:
+        # Handle non-streaming response
+        response = client.chat.completions.create(**api_params)
+        generated_text = response.choices[0].message.content
 
     elapsed_time = time.time() - start_time
     total_tokens = count_tokens(generated_text)
@@ -60,8 +64,8 @@ def execute_query(client, model, text, original_code=None, use_prediction=False,
 def main():
     """Execute queries and print their results."""
     parser = argparse.ArgumentParser(description="Test GPT-4O models with streaming output.")
-    parser.add_argument("--mini", action="store_true", help="Use gpt-4o-mini model instead of gpt-4o")
-    parser.add_argument("--prediction", action="store_true", help="Use prediction parameter with original code")
+    parser.add_argument("--no-mini", action="store_true", help="Use gpt-4o model instead of gpt-4o-mini")
+    parser.add_argument("--no-prediction", action="store_true", help="Disable prediction parameter")
     parser.add_argument("--no-stream", action="store_true", help="Disable streaming output")
     args = parser.parse_args()
 
@@ -69,19 +73,19 @@ def main():
         from tests_evaluate.common.inference_prompt import template
         from tests_evaluate.common.single_test_prompt import original_code, update_snippet
 
-        model = "gpt-4o-mini" if args.mini else "gpt-4o"
+        model = "gpt-4o" if args.no_mini else "gpt-4o-mini"
         client = init_openai_client()
         text = template.format(original_code=original_code, update_snippet=update_snippet)
 
         print(f"Running test with model: {model}")
-        print("Prediction mode:", "Enabled" if args.prediction else "Disabled")
+        print("Prediction mode:", "Disabled" if args.no_prediction else "Enabled")
         print("\nTest Query (Streaming):")
         results = execute_query(
             client, 
             model, 
             text, 
-            original_code=original_code if args.prediction else None,
-            use_prediction=args.prediction,
+            original_code=original_code if not args.no_prediction else None,
+            use_prediction=not args.no_prediction,
             stream_output=not args.no_stream
         )
         print(f"\n\nTest Query Results:")
@@ -97,8 +101,9 @@ def main():
                 client, 
                 model, 
                 text,
-                original_code=original_code if args.prediction else None,
-                use_prediction=args.prediction
+                original_code=original_code if not args.no_prediction else None,
+                use_prediction=not args.no_prediction,
+                stream_output=False  # Disable streaming for throughput tests
             )
             throughputs.append(results['throughput'])
             print(f"Throughput: {results['throughput']:.2f} tokens/second")
