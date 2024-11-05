@@ -113,30 +113,19 @@ async def evaluate_with_gpt4(data, limit=None, use_simple_template=False, use_sy
                 # Parse the generated text
                 parsed_text = parse_generated_text(generated_text, use_simple_template)
                 
-                # Create result entry with generated text and metrics
-                entry_with_generated = {
-                    'original_code': original_code,
-                    'update_snippet': update_snippet,
-                    'final_code': entry.get('final_code', ''),
+                # Create result entry matching vLLM format
+                result = {
                     'generated_text': parsed_text,
                     'throughput': throughput,
                     'total_tokens': total_tokens,
                     'elapsed_time': elapsed_time,
                     'model': model_name,
                     'input': prompt_text,
+                    'original_code': original_code,
+                    'update_snippet': update_snippet,
+                    'final_code': entry.get('final_code', ''),
                     'full_output': prompt_text + generated_text
                 }
-                
-                # Calculate diffs
-                diff_results = calculate_diff([entry_with_generated], limit=1, use_simple_template=use_simple_template)[0]
-                
-                # Merge metrics with diff results
-                result = {**diff_results, **{
-                    'throughput': throughput,
-                    'total_tokens': total_tokens,
-                    'elapsed_time': elapsed_time,
-                    'model': model_name
-                }}
                 
                 return result
                 
@@ -192,16 +181,21 @@ async def main():
             print(f"Error processing {input_file}: {e}")
             continue
     
+    # Flatten results from all files into a single list
+    flattened_results = []
+    for results in all_results.values():
+        flattened_results.extend(results)
+        
     if args.output_file:
         try:
             with open(args.output_file, 'w') as f:
-                json.dump(all_results, f, indent=2)
+                json.dump(flattened_results, f, indent=2)
             print(f"Results saved to {args.output_file}")
         except Exception as e:
             print(f"Error writing to {args.output_file}: {e}")
     
-    for input_file, results in all_results.items():
-        print_statistics(input_file, results)
+    # Print statistics for all results together
+    print_statistics("All files", flattened_results)
 
 if __name__ == "__main__":
     asyncio.run(main())
