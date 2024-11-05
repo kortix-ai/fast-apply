@@ -7,7 +7,7 @@ import tiktoken
 from openai import AsyncOpenAI
 from tqdm.asyncio import tqdm
 from aiolimiter import AsyncLimiter
-from ..evaluate import parse_generated_text, calculate_diff, print_statistics
+from ..evaluate import parse_generated_text
 from ..common.inference_prompt import template, simple_template, SYSTEM_PROMPT, USER_PROMPT
 
 # Set rate limiter for OpenAI API - 10000 TPM / 200 RPM for most paid tiers
@@ -89,7 +89,7 @@ async def evaluate_with_gpt4(data, limit=None, use_simple_template=False, use_sy
                     'model': model_name,
                     'messages': messages,
                     'temperature': 0,
-                    'max_tokens': 4000
+                    'max_tokens': 8192,
                 }
                 
                 # Add prediction if enabled
@@ -194,8 +194,5 @@ async def main():
         except Exception as e:
             print(f"Error writing to {args.output_file}: {e}")
     
-    # Print statistics for all results together
-    print_statistics("All files", flattened_results)
-
 if __name__ == "__main__":
     asyncio.run(main())
