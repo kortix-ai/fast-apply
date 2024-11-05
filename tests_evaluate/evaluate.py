@@ -80,7 +80,7 @@ def parse_generated_text(text, use_simple_template=False):
         print(f"Error parsing generated text: {e}", file=sys.stderr)
         return text.strip()
 
-def calculate_diff(data, limit=None, use_simple_template=False, deepseek_activated=False, client=None):
+def calculate_diff(data, limit=None, use_simple_template=False):
     """
     Calculate the diff between final_code and generated_text for each entry.
     Additionally, calculate diffs based on sorted lines for an alternative accuracy metric.
@@ -121,13 +121,6 @@ def calculate_diff(data, limit=None, use_simple_template=False, deepseek_activat
             'added_lines_sorted': added_sorted,
             'removed_lines_sorted': removed_sorted
         }
-
-        # Add DeepSeek evaluation if activated and there are differences
-        if total_diff > 0 and deepseek_activated:
-            deepseek_result = evaluate_with_deepseek(entry, client)
-            if deepseek_result:
-                result['deepseek_score'] = deepseek_result.get('score')
-                result['deepseek_analysis'] = deepseek_result.get('analysis')
 
         results.append(result)
 
@@ -251,13 +244,85 @@ Do not include any other text.
 
     return None
 
-def print_statistics(file_name, results):
+def create_correlation_plots(data, output_path):
+    """
+    Create and save throughput distribution and correlation heatmap plots.
+    
+    Parameters:
+    - data: List of entries containing throughput and tokens information
+    - output_path: Base path to save the plots
+    """
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    # Extract data
+    throughputs = [entry.get('throughput') for entry in data if entry.get('throughput') is not None]
+    total_tokens = [entry.get('total_tokens') for entry in data if entry.get('total_tokens') is not None]
+    
+    if not throughputs or not total_tokens:
+        print("No throughput or tokens data available for plotting")
+        return
+    
+    # Create throughput distribution plot
+    plt.figure(figsize=(10, 6))
+    sns.histplot(data=throughputs, kde=True)
+    plt.title('Distribution of Throughput')
+    plt.xlabel('Throughput')
+    plt.ylabel('Count')
+    plt.savefig(f"{output_path}_distribution.png")
+    plt.close()
+    
+    # Create correlation heatmap
+    df = pd.DataFrame({
+        'Throughput': throughputs,
+        'Total Tokens': total_tokens
+    })
+    
+    correlation_matrix = df.corr()
+    
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', vmin=-1, vmax=1, center=0)
+    plt.title('Correlation Heatmap: Throughput vs Total Tokens')
+    plt.savefig(f"{output_path}_correlation.png")
+    plt.close()
+    
+    print(f"Plots saved to {output_path}_distribution.png and {output_path}_correlation.png")
+
+def plot_throughput_distribution(data, output_path):
+    """
+    Create and save a distribution plot of throughput using seaborn.
+    
+    Parameters:
+    - data: List of entries containing throughput information
+    - output_path: Path to save the plot
+    """
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    import numpy as np
+    
+    throughputs = [entry.get('throughput') for entry in data if entry.get('throughput') is not None]
+    if not throughputs:
+        print("No throughput data available for plotting")
+        return
+        
+    plt.figure(figsize=(10, 6))
+    sns.histplot(data=throughputs, kde=True)
+    plt.title('Distribution of Throughput')
+    plt.xlabel('Throughput')
+    plt.ylabel('Count')
+    plt.savefig(output_path)
+    plt.close()
+    print(f"Throughput distribution plot saved to {output_path}")
+
+def print_statistics(file_name, results, data):
     """
     Print statistics for a single input file, including both original and sorted accuracy.
 
     Parameters:
     - file_name: Name of the input file
     - results: List of dictionaries with diff results
+    - data: Original data containing throughput information
     """
     # Original diffs
     total_diffs = [r['total_diff'] for r in results]
@@ -330,6 +395,14 @@ def print_statistics(file_name, results):
         final_deepseek_accuracy = (fully_correct + deepseek_sum) / total_samples
         print(f"  Final DeepSeek Accuracy score: {final_deepseek_accuracy:.2%}")
 
+    # Print throughput statistics if available
+    throughputs = [entry.get('throughput') for entry in data if entry.get('throughput') is not None]
+    if throughputs:
+        print("\nThroughput Statistics:")
+        print(f"  Average throughput: {statistics.mean(throughputs):.2f}")
+        print(f"  Minimum throughput: {min(throughputs):.2f}")
+        print(f"  Maximum throughput: {max(throughputs):.2f}")
+
 async def main():
     parser = argparse.ArgumentParser(description="Calculate diff between final_code and generated_text.")
     parser.add_argument("input_files", nargs='+', help="Paths to the input JSON files")
@@ -338,6 +411,7 @@ async def main():
     parser.add_argument("--simple", action="store_true", help="Use simple template without tags")
     parser.add_argument("--deepseek", action="store_true", help="Use DeepSeek for evaluation of mismatched code")
     parser.add_argument("--log", action="store_true", help="Save DeepSeek queries and responses to log/ directory")
+    parser.add_argument("--plot-throughput", help="Path to save throughput distribution plot")
     args = parser.parse_args()
 
     all_results = {}
@@ -412,8 +486,25 @@ async def main():
         except Exception as e:
             print(f"Error writing to {args.output_file}: {e}")
 
+    # Keep track of the last valid dataset for plotting
+    last_valid_data = None
+    
     for input_file, results in all_results.items():
-        print_statistics(input_file, results)
+        try:
+            with open(input_file, 'r') as f:
+                current_data = json.load(f)
+                last_valid_data = current_data
+        except Exception as e:
+            print(f"Error reading {input_file} for statistics: {e}")
+            continue
+            
+        print_statistics(input_file, results, current_data[:args.n] if args.n else current_data)
+        
+    # Create throughput plot if requested and we have valid data
+    if args.plot_throughput and last_valid_data:
+        create_correlation_plots(last_valid_data[:args.n] if args.n else last_valid_data, args.plot_throughput)
+    elif args.plot_throughput:
+        print("Warning: No valid data available for plotting")
 
 if __name__ == "__main__":
     asyncio.run(main())

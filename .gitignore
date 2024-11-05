@@ -33,3 +33,5 @@ log/
 *.json
 *.log
 cache/
+
+*.png
