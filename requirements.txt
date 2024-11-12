@@ -3,3 +3,5 @@ fireworks-ai
 anthropic==0.36.1
 pandas
 pyarrow
+openai==1.54.3
+tiktoken
