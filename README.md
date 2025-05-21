@@ -9,7 +9,7 @@
 
 
 
-Kortix Fast Apply models are designed for instant code application, producing full file edits to power [SoftGen AI](https://softgen.ai/).
+Kortix Fast Apply models are designed for instant code application.
 They achieve high throughput when deployed on fast providers like Fireworks while maintaining high edit accuracy:
 
 - ~ `340 tok/s` for 1.5B model
