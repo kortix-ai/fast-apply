@@ -4,6 +4,7 @@
 - Morph hits **~1,600 tok/s** even on huge token diffs
 - Larger model trained on millions of examples and tuned for accuracy.  
 > Stable inference, large free tier, highly recommended if you need serious speed in prod.
+
 https://github.com/user-attachments/assets/3c7be1a1-dd9a-42b6-8d7f-393133e8f37e
 
 
