@@ -50,6 +50,9 @@ Model output :
 We chose smaller models (7B and 1.5B) for fast inference speed, suitable for instant apply tasks. 
 These models work well with AI-powered code editors like Aider, PearAI or local tools to reduce the cost of frontier model output.
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=kortix-ai/fast-apply&type=Date)](https://www.star-history.com/#kortix-ai/fast-apply&Date)
 
 ## Data Generation Pipeline
 
