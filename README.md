@@ -1,7 +1,8 @@
 # Fast Apply: Pipeline for Data Generation & Fine-Tuning Qwen2.5 Coder Models
 
-**🚀 Update May 2025:** For production-grade throughput, we use **[Morph](https://morphllm.com)** (the hosted Fast Apply API powering [SoftGen AI](https://softgen.ai/)). 
-- Morph hits **~4,500+ tok/s** even on huge token diffs
+**🚀 Update Sept 2025:** For production-grade throughput, we use **[Morph](https://morphllm.com)** (the hosted Fast Apply API powering [SoftGen AI](https://softgen.ai/)). 
+- Morph hits **~10,500+ tok/s** even on huge token diffs
+- 262k Context Length
 - Larger model trained on millions of examples and tuned for accuracy.  
 > Stable inference, large free tier, highly recommended if you need serious speed in prod.
 
